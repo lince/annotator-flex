@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="530" height="378" xmlns:local="*" x="0" y="0">
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<s:VideoPlayer id="playerDisplay" 
+				   x="0" y="0" width="530" height="378"
+				   loop="false" skinClass="Skin.VCPlayerSkin"
+				   autoPlay="false" visible="true"
+				   pauseWhenHidden="true" dropShadowVisible="false"				   
+				   />
+	
+	<s:HSlider id="slider" x="77" y="361" width="272"
+			   visible="true" 
+			   liveDragging="true"			   
+			   />	
+	<mx:Label id="durationDisplay" x="408" y="357" width="40" height="19" styleName="durationDisplay"/>	
+	<s:Label id="timeDivider" x="401" y="356" width="6" height="26" fontSize="20" text="/"/>	
+	<mx:Label id="currentDisplay" x="363" y="357" width="40" height="19" styleName="currentDisplay"/>	
+	
+</s:Group>

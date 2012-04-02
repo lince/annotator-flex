@@ -1,0 +1,1837 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009"
+					   xmlns:s="library://ns.adobe.com/flex/spark"
+					   xmlns:mx="library://ns.adobe.com/flex/mx"
+					   width="100%" height="100%" backgroundColor="white" 
+					   xmlns:local="*" xmlns:FileManipulation="FileManipulation.*" 
+					   xmlns:IntervalsSlider="IntervalsSlider.*" initialize="windowedapplication1_initializeHandler(event)">	
+	<fx:Style source="Styles.css"/>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->		
+		<mx:DateFormatter id="dateFormatter" formatString="NN:SS"/>				
+	</fx:Declarations>
+	
+	<fx:Script>		
+		<![CDATA[			
+			import FileManipulation.FileStreamWithLineReader;
+			import FileManipulation.LabelUtil1;
+			
+			import IntervalsSlider.MultiThumbHSlider;
+			import IntervalsSlider.SliderInfo;
+			import IntervalsSlider.events.MouseEventWithInfo;
+			import IntervalsSlider.events.ThumbEvent;
+			import IntervalsSlider.events.TrackHighlightEvent;
+			import IntervalsSlider.skins.track.HSliderWideTrackHighlightSkin;
+			import IntervalsSlider.supportClasses.SliderTrackHighlight;
+			
+			import XML.Destaque;
+			import XML.ObjectConverter;
+			
+			import flash.sampler.NewObjectSample;
+			import flash.utils.clearInterval;
+			import flash.utils.flash_proxy;
+			
+			import mx.charts.chartClasses.ChartElement;
+			import mx.charts.series.ColumnSeries;
+			import mx.collections.ArrayCollection;
+			import mx.collections.ArrayList;
+			import mx.collections.ICollectionView;
+			import mx.controls.Alert;
+			import mx.controls.DataGrid;
+			import mx.controls.TextInput;
+			import mx.controls.VideoDisplay;
+			import mx.controls.listClasses.ListBase;
+			import mx.controls.listClasses.ListBaseSelectionData;
+			import mx.controls.sliderClasses.Slider;
+			import mx.core.FlexBitmap;
+			import mx.core.FlexLoader;
+			import mx.core.UIComponent;
+			import mx.core.mx_internal;
+			import mx.events.CloseEvent;
+			import mx.events.DataGridEvent;
+			import mx.events.DataGridEventReason;
+			import mx.events.DragEvent;
+			import mx.events.EffectEvent;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			import mx.events.MenuEvent;
+			import mx.events.SliderEvent;
+			import mx.events.StateChangeEvent;
+			import mx.events.VideoEvent;
+			import mx.messaging.Channel;
+			import mx.rpc.xml.SimpleXMLDecoder;
+			import mx.utils.object_proxy;
+			
+			import org.osmf.events.PlayEvent;
+			import org.osmf.events.TimeEvent;
+			
+			import spark.components.HSlider;
+			import spark.components.VideoDisplay;
+			import spark.components.mediaClasses.ScrubBar;
+			import spark.components.supportClasses.ListBase;
+			import spark.components.supportClasses.SkinnableComponent;
+			import spark.components.supportClasses.TrackBase;
+			import spark.core.IDisplayText;
+			import spark.events.IndexChangeEvent;
+			import spark.events.TrackBaseEvent;
+			
+			private static const ADD_TASK:String = "Clique aqui para adicionar destaque";
+			
+			[Bindable]
+			private var tasks:ArrayCollection;
+			
+			private var silenceFile:String;
+			private var subtitleFile:String;
+			private var dropDownListSelection:int = -1;			
+			private var tempoInicial:Object = new Object();
+			private var tempoFinal:Object = new Object();
+			private var editedRow:Object = new Object();	
+			private var labelUtil:LabelUtil1 = new LabelUtil1();
+			private var elementIndexCounter:ArrayCollection = new ArrayCollection();
+			private var trackHighlightArray:ArrayCollection = new ArrayCollection();
+			private var trackHighlightItens:ArrayCollection = new ArrayCollection();
+			private var elementDrawn:Boolean = false;	
+			private var labelCounter:int = 0;
+			private var intervalFit:Boolean = true;
+			private var allTimesSelected:ArrayCollection = new ArrayCollection();
+			private var count:int = 0;
+			private var sliderActiveIndex:int = 0;
+			private var activeSlider:Array = new Array();
+			private var wasPlayingBeforeSeeking:Boolean;
+			private var silenceSlidersDrawn:Boolean = false;
+			private	var sliderTrackArray:ArrayCollection = new ArrayCollection();			
+			
+			[Bindable]
+			private var rowCount:int = 0;				
+			
+			protected function windowedapplication1_initializeHandler(event:FlexEvent):void
+			{
+				//trace("teste");
+				// TODO Auto-generated method stub
+				nativeWindow.maximize();
+			}
+			
+			//funcao para selecionar o video desejado
+		    private function btn_click(evt:MouseEvent):void {
+				var file:File;	
+				file = new File();
+				file.addEventListener(Event.SELECT, file_select);
+				file.browseForOpen("Please select a video...");			
+				cancel.visible = true;	//habilita botoes de iniciar e cancelar
+				btn2.visible = true;			
+			}			
+			
+			//handler do botao voltar que faz a selecao do video
+			protected function backButton_clickHandler(event:MouseEvent):void
+			{
+				myDG.visible = false;
+				player.visible = false;
+				backButton.visible = false;
+				NCL_button.visible = false;
+				msgDestaques.visible = false;
+				msg1.visible = true;
+				logo.visible = true;
+				cancel.visible = true;
+				lbl.visible = true;
+				btn1.visible = true;
+				btn2.visible = true;
+			}
+			
+			//handler para o botao de geracao do arquivo NCL
+			protected function NCL_button_clickHandler(event:MouseEvent):void
+			{
+				Alert.show("Funcionalidade ainda não implementada!","Aviso", Alert.OK);
+				
+			}
+
+			private function init():void
+			{
+				tempoInicial[0] = 0;
+				tempoFinal[0] = 0;
+				editedRow[0] = 0;
+				tasks = new ArrayCollection();
+				//tasks.addItem(new Destaque("Write Tutorial", 4, 3.6));
+				//tasks.addItem(new Destaque("Make Breakfast", 1, 4.6));
+				tasks.addItem({nomeDestaque: ADD_TASK});				
+				//playerSkin.slider.visible = true;
+			}
+			
+			private function testeXml():void{
+				var botaoEditar:spark.components.Button;
+				var botaoExcluir:spark.components.Button;
+				var converter:ObjectConverter = new ObjectConverter();
+				var destaque:Destaque = new Destaque("teste", "23.5", "30.6", botaoEditar, botaoExcluir);				
+				
+				var xml:XML = converter.objectToXML(destaque);				
+				var x:int = lbl.text.indexOf(".flv",0);
+				var subtitleFile:String = lbl.text.substring(0,x);
+				var arquivoDados:String = subtitleFile + ".xml";		
+				var file:File = new File(arquivoDados);
+				var fileStream:FileStream = new FileStream(); 
+				fileStream.open(file, FileMode.WRITE); 
+				fileStream.writeMultiByte(xml.toXMLString(), "utf-8");
+				trace(xml.toXMLString());
+				fileStream.close();
+				
+				var file2:File = File.documentsDirectory.resolvePath(arquivoDados);
+				var fileStream2:FileStream = new FileStream();
+				fileStream2.open(file2, FileMode.READ);
+				var prefsXML:XML = XML(fileStream2.readUTFBytes(fileStream2.bytesAvailable));
+				fileStream2.close();				
+				/* Convert XMLNode to XMLDocument. */
+				//var xmlDoc:XMLDocument = new XMLDocument(xml.toString());
+				var xmlDoc:XMLDocument = new XMLDocument(prefsXML.toString());
+				
+				var decoder:SimpleXMLDecoder = new SimpleXMLDecoder(true);
+				var resultObj:Object = decoder.decodeXML(xmlDoc);
+				trace(resultObj.form.tFinal);	
+			}			
+			
+			//funcao que passa o endereco do arquivo para var lbl
+			private function file_select(evt:Event):void {
+				lbl.text = File(evt.currentTarget).nativePath;
+			}
+			
+			//limpa lbl quando cancel é clicado
+			private function cancel_click(evt:MouseEvent):void{
+				lbl.text = "";
+			}		
+			
+			//cria o arquivo de silencio(.slc)
+			private function createSilenceFile():void{				
+				var x:int = lbl.text.indexOf(".flv",0);
+				subtitleFile = lbl.text.substring(0,x);
+				silenceFile = subtitleFile + ".slc";
+				subtitleFile = subtitleFile + ".srt";
+								
+				var file:File = new File(subtitleFile);
+				var stream:FileStreamWithLineReader = new FileStreamWithLineReader();
+				stream.open(file, FileMode.READ);
+				
+				var file2:File = new File(silenceFile);
+				var fileStream:FileStream = new FileStream(); 
+				fileStream.open(file2, FileMode.WRITE); 
+									
+				var padrao:RegExp = /\d*:\d*:\d*\,\d*/g;
+				var resultadoAtual:Array;
+				var inicio:Boolean = false;
+				var atual:Boolean = false;				
+				
+				var line:String = stream.readUTFLine();
+				line = stream.readUTFLine();
+				
+				resultadoAtual = line.match(padrao);
+				//trace(resultadoAtual);
+				fileStream.writeMultiByte("00:00:00,000" + " --> " + resultadoAtual[0] + "\r\n", "utf-8");
+				
+				var tempo:String;
+				var milesimo:String, seg:String, min:String, hour:String;
+				var intMilesimo1:int, intSeg1:int, intMin1:int, intHour1:int;
+				var intMilesimo2:int, intSeg2:int, intMin2:int, intHour2:int;
+				var intMilesimo:int, intSeg:int, intMin:int, intHour:int;
+				
+				tempo = resultadoAtual[0].toString();
+				hour = tempo.substring(0,2);
+				min = tempo.substring(3,5);
+				seg = tempo.substring(6,8);
+				milesimo = tempo.substring(9,12);
+				fileStream.writeMultiByte("t=" + min + ":" + seg + "," + milesimo + "\r\n\r\n", "utf-8");	
+				
+				fileStream.writeMultiByte(resultadoAtual[1] + " --> ", "utf-8");
+				var tempo1:String;
+				var milesimo1:String, seg1:String, min1:String, hour1:String;
+				tempo1 = resultadoAtual[1].toString();
+				hour1 = tempo1.substring(0,2);
+				intHour1 = parseInt(hour1);
+				min1 = tempo1.substring(3,5);
+				intMin1 = parseInt(min1); 
+				seg1 = tempo1.substring(6,8);
+				intSeg1 = parseInt(seg1);
+				milesimo1 = tempo1.substring(9,12);
+				intMilesimo1 = parseInt(milesimo1);	
+				
+				var resMilesimo:String, resSeg:String, resMin:String;
+				
+				while(stream.bytesAvailable) {
+					line = stream.readUTFLine();
+					resultadoAtual = line.match(padrao);
+					
+					if((resultadoAtual[0] && resultadoAtual[1])!= null){
+						//fileStream.open(file2, FileMode.APPEND);
+						fileStream.writeMultiByte(resultadoAtual[0] + "\r\n", "utf-8");	
+						
+						var tempo2:String;
+						var milesimo2:String, seg2:String, min2:String, hour2:String;
+						tempo2 = resultadoAtual[0].toString();
+						hour2 = tempo2.substring(0,2);
+						intHour2 = parseInt(hour2);
+						min2 = tempo2.substring(3,5);
+						intMin2 = parseInt(min2); 
+						seg2 = tempo2.substring(6,8);
+						intSeg2 = parseInt(seg2);
+						milesimo2 = tempo2.substring(9,12);
+						intMilesimo2 = parseInt(milesimo2);							
+						
+						intHour = intHour2 - intHour1;
+						intMin = intMin2 - intMin1;
+						intSeg = intSeg2 - intSeg1;
+						intMilesimo = intMilesimo2 - intMilesimo1;
+						
+						if(intMilesimo < 0){
+							intMilesimo = 1000 + intMilesimo;
+							intSeg--;									
+							if(intMilesimo < 100){
+								if(intMilesimo < 10){
+									resMilesimo = "00" + intMilesimo.toString();
+								}
+								else
+									resMilesimo = "0" + intMilesimo.toString();
+							}
+							else
+								resMilesimo = intMilesimo.toString();
+						}
+						else{
+							if(intMilesimo == 0){
+								resMilesimo = "000";
+							}
+							else{
+								if(intMilesimo < 100){
+									if(intMilesimo < 10){
+										resMilesimo = "00" + intMilesimo.toString();
+									}
+									else
+										resMilesimo = "0" + intMilesimo.toString();
+								}
+								else
+									resMilesimo = intMilesimo.toString();
+							}									
+						}
+						
+						if(intSeg < 0){
+							intSeg = 60 + intSeg;
+							intMin--;
+							if(intSeg < 10){
+								resSeg = "0" + intSeg.toString();
+							}
+							else
+								resSeg = intSeg.toString();
+						}
+						else{
+							if(intSeg == 0)
+								resSeg = "00";							
+							else{
+								if(intSeg < 10)
+									resSeg = "0" + intSeg.toString();
+								else
+									resSeg = intSeg.toString();
+							}									
+						}							
+						
+						if(intMin < 0){
+							intMin = 60 + intMin;
+							intHour--;
+							if(intMin < 10)
+								resMin = "0" + intMin.toString();
+							else
+								resMin = intMin.toString();
+						}
+						else{
+							if(intMin == 0){
+								resMin = "00";
+							}
+							else{
+								if(intMin < 10)
+									resMin = "0" + intMin.toString();								
+								else
+									resMin = intMin.toString();
+							}									
+						}							
+						
+						fileStream.writeMultiByte("t=" + resMin + ":" + resSeg + "," 
+							+ resMilesimo + "\r\n\r\n", "utf-8");
+						
+						fileStream.writeMultiByte(resultadoAtual[1] + " --> ", "utf-8");
+						tempo1 = resultadoAtual[1].toString();
+						hour1 = tempo1.substring(0,2);
+						intHour1 = parseInt(hour1);
+						min1 = tempo1.substring(3,5);
+						intMin1 = parseInt(min1); 
+						seg1 = tempo1.substring(6,8);
+						intSeg1 = parseInt(seg1);
+						milesimo1 = tempo1.substring(9,12);
+						intMilesimo1 = parseInt(milesimo1);
+					}																	
+				}//end of while
+				
+				fileStream.writeMultiByte(converter(player.playerDisplay.duration) + ",000" + "\r\n", "utf-8");
+				
+				tempo2 = converter(player.playerDisplay.duration) + ",000";
+				hour2 = tempo2.substring(0,2);
+				intHour2 = parseInt(hour2);
+				min2 = tempo2.substring(3,5);
+				intMin2 = parseInt(min2); 
+				seg2 = tempo2.substring(6,8);
+				intSeg2 = parseInt(seg2);
+				milesimo2 = tempo2.substring(9,12);
+				intMilesimo2 = parseInt(milesimo2);							
+				
+				intHour = intHour2 - intHour1;
+				intMin = intMin2 - intMin1;
+				intSeg = intSeg2 - intSeg1;
+				intMilesimo = intMilesimo2 - intMilesimo1;
+				
+				if(intMilesimo < 0){
+					intMilesimo = 1000 + intMilesimo;
+					intSeg--;									
+					if(intMilesimo < 100){
+						if(intMilesimo < 10){
+							resMilesimo = "00" + intMilesimo.toString();
+						}
+						else
+							resMilesimo = "0" + intMilesimo.toString();
+					}
+					else
+						resMilesimo = intMilesimo.toString();
+				}
+				else{
+					if(intMilesimo == 0){
+						resMilesimo = "000";
+					}
+					else{
+						if(intMilesimo < 100){
+							if(intMilesimo < 10){
+								resMilesimo = "00" + intMilesimo.toString();
+							}
+							else
+								resMilesimo = "0" + intMilesimo.toString();
+						}
+						else
+							resMilesimo = intMilesimo.toString();
+					}									
+				}
+				
+				if(intSeg < 0){
+					intSeg = 60 + intSeg;
+					intMin--;
+					if(intSeg < 10){
+						resSeg = "0" + intSeg.toString();
+					}
+					else
+						resSeg = intSeg.toString();
+				}
+				else{
+					if(intSeg == 0)
+						resSeg = "00";							
+					else{
+						if(intSeg < 10)
+							resSeg = "0" + intSeg.toString();
+						else
+							resSeg = intSeg.toString();
+					}									
+				}							
+				
+				if(intMin < 0){
+					intMin = 60 + intMin;
+					intHour--;
+					if(intMin < 10)
+						resMin = "0" + intMin.toString();
+					else
+						resMin = intMin.toString();
+				}
+				else{
+					if(intMin == 0){
+						resMin = "00";
+					}
+					else{
+						if(intMin < 10)
+							resMin = "0" + intMin.toString();								
+						else
+							resMin = intMin.toString();
+					}									
+				}							
+				
+				fileStream.writeMultiByte("t=" + resMin + ":" + resSeg + "," 
+					+ resMilesimo + "\r\n\r", "utf-8");	
+				
+				//fecha os arquivos
+				stream.close();
+				fileStream.close();
+			}
+			
+			//funcao chamada assim que se clica no botao iniciar
+			private function testeSilence(evt:MouseEvent):void{	
+				
+				var validType:int = lbl.text.indexOf(".flv",0);
+				//fazer a checagem para ver se a extensão do arquivo é .flv
+				//trace("Valor de validType: " + validType);
+				
+				if(lbl.text != "" && validType != -1){
+					//tira visibilidade dos botoes
+					cancel.visible = false;
+					btn1.visible = false;
+					btn2.visible = false;
+					lbl.visible = false;
+					msg1.visible = false;
+					logo.visible = false;
+					msgDestaques.visible = true;
+					backButton.visible = true;
+					NCL_button.visible = true
+					nativeWindow.maximize();
+					
+					player.playerDisplay.addEventListener(TimeEvent.CURRENT_TIME_CHANGE, player_currentTimeChangeHandler);
+					player.playerDisplay.addEventListener(TimeEvent.COMPLETE, player_completeHandler);
+					player.slider.addEventListener(TrackBaseEvent.THUMB_PRESS, slider_thumbPressHandler);
+					player.slider.addEventListener(TrackBaseEvent.THUMB_RELEASE, slider_thumbReleaseHandler);
+					player.slider.addEventListener(TrackBaseEvent.THUMB_DRAG, slider_thumbDragHandler);
+					player.slider.addEventListener(Event.CHANGE, slider_changeHandler);
+					
+					//inicia visibilidade do video
+					player.visible = true;
+					myDG.visible = true;
+					menuBar.visible = true;				
+					player.playerDisplay.source = lbl.text;				
+									
+					/* ****************************************** */
+					//adiciona listener para se saber o tempo total do video
+					player.addEventListener(Event.FRAME_CONSTRUCTED, player_frameConstructedHandler);
+					/* ****************************************** */
+				}
+				else{
+					Alert.show("Por favor, selecione um video com extensão .flv","Erro", Alert.OK);
+				}
+			}		
+			
+			protected function player_currentTimeChangeHandler(event:TimeEvent):void
+			{
+				// TODO Auto-generated method stub
+				//t.text = player.currentTime.toString();	
+				labelUtil.constrainTextToWidth(player.currentDisplay, formatTimeValue(player.playerDisplay.currentTime));
+				player.slider.value = player.playerDisplay.currentTime;	
+				
+			}
+					
+			protected function checkEdit(event:DataGridEvent):void
+			{
+				// Do not allow editing of Add Task row except for
+				// "Click to Add" column
+				//trace("checkEdit");
+				if(event.rowIndex == tasks.length - 1 && event.columnIndex != 0){
+					event.preventDefault();					
+				}			
+				
+				if(editedRow[event.rowIndex] == true && event.columnIndex != 0){
+					event.preventDefault();
+				}				
+			}
+			
+			private function editEnd(e:DataGridEvent):void{
+				// Adding a new task
+				player.removeEventListener(Event.FRAME_CONSTRUCTED, player_frameConstructedHandler);
+				var botaoEditar:spark.components.Button;
+				var botaoExcluir:spark.components.Button;
+				var txtIn2:TextInput; 
+				var intervalo:Boolean;
+				//trace("Entrou editEnd");
+				t.text = converter(player.playerDisplay.currentTime);				
+				
+				if(e.rowIndex == tasks.length - 1)
+				{
+					var txtIn:Object = TextInput(e.currentTarget.itemEditorInstance);					
+										
+					if(e.rowIndex > 0){
+						if((txtIn.text != ADD_TASK) && (verificaIntervalo(parseInt(player.playerDisplay.currentTime.toFixed(0)), e.rowIndex, e.columnIndex))
+							&& tempoFinal[e.rowIndex - 1] > 0)
+						{
+							//trace("rowindex > 0");
+							tasks.addItemAt(new Destaque(txtIn.text, t.text, " ", botaoEditar, botaoExcluir), e.rowIndex);							
+							rowCount++;
+							tempoInicial[e.rowIndex] = parseInt(player.playerDisplay.currentTime.toFixed(0));
+							editedRow[e.rowIndex - 1] = true;	
+							editedRow[e.rowIndex] = false;
+							//trace("tempoInicialCriado[" + e.rowIndex + "] " + parseInt(player.currentTime.toFixed(0)) + "\n");//tempoFinal[e.rowIndex] = 0;
+						}
+						else{
+							if(!verificaIntervalo(parseInt(player.playerDisplay.currentTime.toFixed(0)), e.rowIndex, e.columnIndex)
+								&& e.reason	== DataGridEventReason.NEW_COLUMN){
+								Alert.show("Tempo ja especificado","Aviso",Alert.OK);														
+							}
+							else{
+								if(e.reason	== DataGridEventReason.NEW_COLUMN){
+									Alert.show("Preencha o tempo final","Aviso",Alert.OK);
+								}
+							}
+						}
+					}
+					else{
+						if(e.rowIndex == 0){
+							if((txtIn.text != ADD_TASK) && (e.columnIndex == 0) )
+							{
+								//trace("rowindex == 0");				
+								tasks.addItemAt(new Destaque(txtIn.text, t.text, " ", botaoEditar, botaoExcluir), e.rowIndex);
+								rowCount++;
+								tempoInicial[e.rowIndex] = parseInt(player.playerDisplay.currentTime.toFixed(0));	
+								//var videoEnd:Number = player.duration;
+								//trace("videoEnd: " + videoEnd);								
+								//editedRow[e.rowIndex] = true;								
+								//tempoFinal[e.rowIndex] = 0;								
+							}							
+						}
+					}					
+					// Stop default behavior
+					e.preventDefault();					
+				}
+			}				
+			
+			public function editCell(event:ListEvent):void{
+				//trace("editCell");				
+				if((event.columnIndex == 1 || event.columnIndex == 2) && (editedRow[event.rowIndex] == false)){					
+					//verificar se o intervalo e valido para inserir no tempoFinal				
+					if((parseInt(player.playerDisplay.currentTime.toFixed(0)) > timeInSeconds(event.itemRenderer.data.tInicial)) && 
+						(event.columnIndex == 2) && (event.itemRenderer.data.nomeDestaque != ADD_TASK) &&
+						  verificaIntervalo(parseInt(player.playerDisplay.currentTime.toFixed(0)), event.rowIndex, event.columnIndex) &&
+					 		(player.playerDisplay.currentTime - timeInSeconds(event.itemRenderer.data.tInicial)) <= 600 ){
+							
+							event.itemRenderer.data.tFinal = converter(player.playerDisplay.currentTime);
+							tempoFinal[event.rowIndex] = parseInt(player.playerDisplay.currentTime.toFixed(0));							
+					}
+					else{ 
+						if((event.columnIndex == 2) && 
+						   (parseInt(player.playerDisplay.currentTime.toFixed(0)) <= timeInSeconds(event.itemRenderer.data.tInicial))){
+								tempoFinal[event.rowIndex] = 0;
+								Alert.show("Tempo final deve ser maior que o inicial","Aviso", Alert.OK);
+						}
+						else{						
+							if(!verificaIntervalo(parseInt(player.playerDisplay.currentTime.toFixed(0)), event.rowIndex, event.columnIndex) && 
+								(event.itemRenderer.data.nomeDestaque != ADD_TASK)){
+									//trace("entrou alerta 1");
+									Alert.show("Intervalo ja especificado","Aviso", Alert.OK);
+							}
+							else //verifica se o intervalo e valido para inserir no tempoInicial
+								if((parseInt(player.playerDisplay.currentTime.toFixed(0)) < timeInSeconds(event.itemRenderer.data.tFinal)) &&
+									(event.columnIndex == 1) && 
+									verificaIntervalo(parseInt(player.playerDisplay.currentTime.toFixed(0)), event.rowIndex, event.columnIndex) &&
+									(event.itemRenderer.data.nomeDestaque != ADD_TASK)
+								){
+									//trace("Entrou no if inicial")
+									event.itemRenderer.data.tInicial = converter(player.playerDisplay.currentTime);		
+									tempoInicial[event.rowIndex] = parseInt(player.playerDisplay.currentTime.toFixed(0));									
+								}
+								else{ 
+									if((event.columnIndex == 1) && 
+										(parseInt(player.playerDisplay.currentTime.toFixed(0)) >= timeInSeconds(event.itemRenderer.data.tInicial)) &&
+										event.itemRenderer.data.nomeDestaque != ADD_TASK){										
+											Alert.show("Tempo inicial deve ser menor que o final","Aviso", Alert.OK);
+									}
+									else{ 
+										if(!verificaIntervalo(parseInt(player.playerDisplay.currentTime.toFixed(0)), event.rowIndex, event.columnIndex)
+										&& (event.itemRenderer.data.nomeDestaque != ADD_TASK)){
+											//trace("Intervalo dentro editCell");
+											Alert.show("Intervalo ja especificado","Aviso", Alert.OK);
+										}
+										else
+											if((player.playerDisplay.currentTime - timeInSeconds(event.itemRenderer.data.tInicial)) > 600){
+												Alert.show("Só são permitidos destaques de até 10 min!","Aviso", Alert.OK);
+											}
+									}
+								}
+							}					
+						}
+				}									
+				// Stop default behavior
+				//event.preventDefault();
+			}			
+
+			//converte tempo inteiro em formato HH:MM:SS
+			private function converter(time:Number):String{
+				var hour:int, min:int, seg:int;
+				var milesimo:Number, milesimo2:Number;
+				
+				var timeString:String;			
+				var hourString:String, minString:String, segString:String;
+								
+				/*hour = (time/3600); 
+				min = ((time%3600)/60);
+				seg = ((time%3600)%60);*/
+				time = Math.round(time);
+				
+				hour = Math.floor(time/3600) % 24;
+				min = Math.floor(time/60) % 60;
+				seg = time % 60;
+				
+				hourString = hour.toString();
+				minString = min.toString();
+				segString = seg.toFixed();
+				
+				if(min.toFixed() == "60"){
+					segString = "00";
+					minString = "00";
+					hour++;
+					hourString = hour.toFixed();
+				}		
+				
+				if(hour < 10){
+					hourString = "0" + hourString;
+				}
+				if(seg.toFixed() == "60"){
+					segString = "00";
+					min++;
+					minString = min.toFixed();
+				}				
+				if(min < 10){
+					minString = "0" + minString;					
+				}				
+				
+				if(seg < 10){
+					if(seg == 0){
+						segString = "0" + seg.toString();
+					}
+					else{
+						segString = "0" + seg.toFixed();	
+					}
+				}				
+				timeString = hourString + ":" + minString + ":" + segString;
+				//trace("Valor retornado na funcao converter: " + timeString);
+				return timeString;
+			}
+			
+			//converte para formato HH:MM:SS tirando zeros desnecessarios
+			protected function formatTimeValue(value:Number):String
+			{
+				// default format: hours:minutes:seconds
+				value = Math.round(value);
+				
+				var hours:uint = Math.floor(value/3600) % 24;
+				var minutes:uint = Math.floor(value/60) % 60;
+				var seconds:uint = value % 60;
+				
+				var result:String = "";
+				if (hours != 0)
+					result = hours + ":";
+				
+				if (result && minutes < 10)
+					result += "0" + minutes + ":";
+				else
+					result += minutes + ":";
+				
+				if (seconds < 10)
+					result += "0" + seconds;
+				else
+					result += seconds;
+				
+				return result;
+			}
+			
+			//retorna tempo em segundos
+			private function timeInSeconds(time:String):Number{
+				if(time != null){					
+					var intSec:int = parseInt(time.substring(6,8));
+					var intMin:int = parseInt(time.substring(3,5));
+					var intHour:int = parseInt(time.substring(0,2));
+					//trace(intHour, intMin, intSec);
+					return intSec + intMin*60 + intHour*3600;					
+				}
+				else
+					return 0;
+			}
+			
+			//verifica validade do intervalo 
+			private function verificaIntervalo(dadoInt:int, indiceLinha:int, indiceColuna:int):Boolean{					
+				if(indiceLinha > 0){	
+					//laco que varre todo o datagrid checando integridade dos dados
+					for(var i:int = indiceLinha; i >= 1; i--){
+						//verifica se tempo esta entre um intervalo ja inserido
+						if(dadoInt >= (tempoInicial[i-1]) && (dadoInt <= tempoFinal[i-1])){
+							//trace("Entrou na 1 condicao");
+							return false;
+						}
+						else{
+							//verifica se intervalo que esta sendo especificado nao engloba outro ja especificado
+							if((tempoInicial[indiceLinha] < tempoInicial[i-1]) && (dadoInt > tempoFinal[i-1])
+									&& (indiceColuna == 2)){								
+								//trace("condicao 2");
+								return false;
+							}
+						}
+					}
+				}
+				return true;
+			}
+			
+			//voltar da tela com as barras de silencio
+			public function voltar(evt:MouseEvent):void{
+				volta.visible = false;
+				msgDestaques.visible = true;
+				dropDownList.visible = false;
+				dropDownListOkButton.visible = false;
+				myDG.visible = true;
+				barsContainer.visible = false;
+				//silenceBarsContainer.visible = false;
+				
+				if(elementDrawn){
+					var index:int;
+					for(var j:int = elementIndexCounter.length - 1; j >= 0; j--){
+						index = elementIndexCounter[j];
+						trace("index:" + index);
+						silenceBarsContainer.getElementAt(index).visible = false;													
+					}					
+				}
+							
+				//elementDrawn = false;
+				editionIcons.visible = false;
+				var destaque:Object;
+				destaque = tasks.getItemAt(myDG.selectedIndex);
+				player.slider.minimum = 0;
+				player.slider.maximum = player.playerDisplay.duration;
+				player.playerDisplay.seek(0);
+				player.slider.value = 0;
+				
+				/* ******************** acertar as variaveis da barrinha ************************ */
+				/*sliderTrackArray.removeAll();
+				//sliderActiveIndex = 0;	
+				//sliderBoundariesArray.removeAll();
+				//count = 0;				
+				
+				//remocao dos eventListeners
+				/*player.slider.removeEventListener(Event.EXIT_FRAME, event);		
+				sliderTrackArray.removeEventListener(TrackBaseEvent.THUMB_PRESS, pressEvent);				
+				sliderTrackArray.removeEventListener(TrackBaseEvent.THUMB_DRAG, dragEvent);
+				sliderTrackArray.removeEventListener(TrackBaseEvent.THUMB_RELEASE, releaseEvent);
+				sliderTrackArray.removeEventListener(Event.CHANGE, changeEvent);*/
+				
+				labelUtil.constrainTextToWidth(player.durationDisplay, formatTimeValue(player.playerDisplay.duration));				
+				player.playerDisplay.stopButton.removeEventListener(MouseEvent.CLICK, hsliderFinished);
+				player.slider.removeEventListener(Event.ENTER_FRAME, hsliderFinished);							
+				NCL_button.visible = true;			
+			}
+			
+			private var detachEnd:Number, detachBeginning:Number;
+			private var selectedIndex:int = -1;
+			//editar destaque
+			public function testeEditar():void{
+				//testePlayer.currentTimeDisplay1.visible = true;
+				msgDestaques.visible = false;
+				backButton.visible = false;
+				NCL_button.visible = false;				
+				volta.visible = true;
+				myDG.visible = false;
+				dropDownList.visible = true;
+				dropDownListOkButton.visible = true;
+																				
+				var destaque:Object;
+				destaque = tasks.getItemAt(myDG.selectedIndex);
+				
+				if(myDG.selectedIndex == selectedIndex){
+					var index:int;
+					for(var j:int = elementIndexCounter.length - 1; j >= 0; j--){
+						index = elementIndexCounter[j];
+						silenceBarsContainer.getElementAt(index).visible = true;													
+					}
+					editionIcons.visible = true;
+					barsContainer.visible = true;
+					sliderActiveIndex = 0;	
+					count = 0;	
+					
+					for(j = 0; j < activeSlider.length; j++){
+						sliderTrackArray[j].value = sliderTrackArray[j].minimum;
+						activeSlider[j] = false;
+						sliderTrackArray[j].thumb.visible = false;									
+					}
+					sliderTrackArray[0].value = detachBeginning;
+					sliderActiveIndex = 0;								
+					count = 0;
+					sliderTrackArray[0].thumb.visible = true;
+					activeSlider[0] = true;					
+				}
+				else{
+					trace("Fez o comando que eu queria");
+					dropDownList.selectedIndex = -1;
+					dropDownList.prompt = "Filtrar intervalos de silêncio";
+					
+					if(elementDrawn && myDG.selectedIndex == selectedIndex){	
+						
+						for(j = elementIndexCounter.length - 1; j >= 0; j--){						
+							index = elementIndexCounter[j];
+							silenceBarsContainer.removeElementAt(index);																		
+						}
+						//remover todos os itens do sliderTrackArray
+						//acertar activeSlider e zerar variaveis que precisar	
+						elementDrawn = false;						
+						sliderTrackArray.removeAll();
+						sliderBoundariesArray.removeAll();
+						sliderActiveIndex = 0;	
+						count = 0;						
+					}					
+				}
+				
+				selectedIndex = myDG.selectedIndex;
+				player.playerDisplay.pause();
+				//player.playerDisplay.stop();
+				detachBeginning = timeInSeconds(destaque.tInicial);
+				detachEnd = timeInSeconds(destaque.tFinal);
+				player.slider.minimum = timeInSeconds(destaque.tInicial);
+				player.slider.maximum = timeInSeconds(destaque.tFinal);
+				player.playerDisplay.seek(timeInSeconds(destaque.tInicial));
+				player.slider.value = timeInSeconds(destaque.tInicial);
+				labelUtil.constrainTextToWidth(player.durationDisplay, formatTimeValue(timeInSeconds(destaque.tFinal)));
+				player.slider.addEventListener(Event.ENTER_FRAME, hsliderFinished);
+				player.playerDisplay.stopButton.addEventListener(MouseEvent.CLICK, hsliderFinished);				
+			}
+			
+			private function hsliderFinished(event:Event):void{
+				//trace("entrou a cada mudanca");
+				if(player.slider.value == player.slider.maximum){
+					trace(event);
+					player.playerDisplay.stop();
+					player.playerDisplay.seek(player.slider.minimum);
+					player.slider.value = player.slider.minimum;
+					
+					trace("Chegou ao final pelo slider do video");
+					sliderTrackArray[sliderActiveIndex].thumb.visible = false;
+					sliderTrackArray[0].thumb.visible = true;
+					activeSlider[sliderActiveIndex] = false;
+					activeSlider[0] = true;
+					for(var k:int = activeSlider.length - 1; k >= 0; k--){
+						sliderTrackArray[k].value = sliderTrackArray[k].minimum;
+					}
+					sliderTrackArray[0].value = detachBeginning;
+					sliderActiveIndex = 0;								
+					count = 0;	
+					//listenerRemover na funcao volta	
+				}
+				if(event.type == "click"){
+					player.playerDisplay.stop();
+					player.playerDisplay.seek(player.slider.minimum);					
+					//listenerRemover na funcao volta				
+				}
+			}
+			
+			//exclui linha de destaque
+			public function excluirDestaque():void{
+				//exclui linha caso esteja preenchida
+				var object:Object;
+				object = myDG.selectedItem;		
+				
+				if(object.nomeDestaque != ADD_TASK)
+				{
+					Alert.show("Are you sure you want to delete ?","Confirm Delete", Alert.YES | Alert.NO, this, delRowHandler, null, Alert.NO);
+				}				
+			}
+			
+			//metodo chamado pelo excluirDestaque
+			private function delRowHandler(evt:CloseEvent):void {
+				if ((evt.detail == Alert.NO) || (evt.detail == Alert.CANCEL)) return;
+					trace("exclui linha");					
+					trace("RowCount: " + rowCount);					
+					for(var j:int = 0; j < rowCount; j++){
+						trace("tempoInicial antes " + tempoInicial[j]);
+						trace("tempoFinal antes " + tempoFinal[j]);						
+					}
+					
+					//subir as outras posicoes ao deletar uma linha do datagrid
+					for(var i:int = myDG.selectedIndex; i < rowCount; i++){
+						tempoInicial[i] = tempoInicial[i+1];
+						tempoFinal[i] = tempoFinal[i+1];										
+					}
+					
+					for(var k:int = 0; k < rowCount; k++){
+						trace("tempoInicial depois " + tempoInicial[k]);
+						trace("tempoFinal depois " + tempoFinal[k]);						
+					}
+					
+					rowCount--;
+					myDG.dataProvider.removeItemAt(myDG.selectedIndex);						
+			}			
+			
+			private function menuHandler(event:MenuEvent):void{
+				//mostra msg apenas para submenus
+				if (event.item.@data != "top") {
+					if(event.item.@label == "Salvar"){
+						trace("teste salvar");
+						Alert.show("Label: " + event.item.@label + "\n", "Salvar");
+						//chama funcao para salvar os dados
+						testeXml();
+					}					
+				}
+			}
+			
+			/* ****************************************************************************************************/
+			private function silenceSlider_thumbPressHandler(sliderArray:ArrayCollection, index:int):void {
+				player.slider.removeEventListener(Event.EXIT_FRAME, event);
+				for(var i:int = 0; i < activeSlider.length; i++){
+					if(activeSlider[i] == true){
+						//sliderArray[i].value = player.playerDisplay.videoDisplay.currentTime;
+						//trace("Barra pressionada: " + i);						
+					}
+				}							
+				//trace("pressed");
+				if(player.playerDisplay.videoDisplay.playing){
+					player.playerDisplay.videoDisplay.pause();
+					wasPlayingBeforeSeeking = true;
+				}
+				if(sliderArray[0].value < detachBeginning){
+					sliderArray[0].value = detachBeginning;
+					player.playerDisplay.seek(detachBeginning);
+					sliderArray[0].showDataTip = false;
+				}
+				else
+					sliderArray[0].showDataTip = true;
+			}
+			
+			private function silenceSlider_thumbReleaseHandler(sliderArray:ArrayCollection, detachBeginning:Number, detachEnd:Number):void {
+				player.slider.addEventListener(Event.EXIT_FRAME, event);
+				//trace("released");
+				if(wasPlayingBeforeSeeking){
+					player.playerDisplay.videoDisplay.play();
+					wasPlayingBeforeSeeking = false;
+				}
+				if(sliderArray[0].value < detachBeginning){
+					sliderArray[0].value = detachBeginning;
+					sliderArray[0].thumb.visible = true;
+					sliderArray[0].showDataTip = false;
+					player.playerDisplay.seek(detachBeginning);					
+				}
+				else{
+					sliderArray[0].showDataTip = true;					
+				}
+				
+				for(var j:int = sliderActiveIndex; j < activeSlider.length; j++){
+					if(sliderArray[j].value == sliderArray[j].maximum && activeSlider[j] == true){
+						sliderArray[j+1].value = sliderArray[j+1].minimum;
+					}
+				}
+			}
+			
+			protected function silenceSlider_thumbDragHandler(sliderArray:ArrayCollection, detachBeginning:Number, detachEnd:Number):void
+			{
+				//trace("dragged");
+				//player.slider.addEventListener(Event.EXIT_FRAME, event);
+				player.slider.removeEventListener(Event.EXIT_FRAME, event);
+				for(var j:int = 0; j < activeSlider.length; j++){
+					if(activeSlider[j] == true){
+						if(sliderArray[0].value < detachBeginning){
+							sliderArray[0].value = detachBeginning;
+							sliderArray[0].thumb.visible = false;
+							sliderArray[0].showDataTip = false;
+							player.playerDisplay.seek(detachBeginning);
+						}
+						//trace("Barra arrastada: " + j);			
+						player.playerDisplay.seek(sliderArray[j].value);
+						if(sliderArray[j].value > detachEnd){
+							//trace("Chegou ao final da barra");
+							sliderArray[j].thumb.visible = false;
+							sliderArray[0].thumb.visible = true;
+							activeSlider[j] = false;
+							activeSlider[0] = true;
+							for(var k:int = 0; k < activeSlider.length; k++){
+								sliderArray[k].value = sliderArray[k].minimum;
+							}
+							sliderArray[0].value = detachBeginning;
+							sliderActiveIndex = 0;								
+							count = 0;							
+						}						
+					}
+				}			
+			}
+			
+			private function silenceSlider_changeHandler(sliderArray:ArrayCollection, detachBeginning:Number, detachEnd:Number, e:Event):void
+			{
+				//trace("Indice selecionado: " + e.target);	
+				//player.slider.removeEventListener(Event.EXIT_FRAME, event);
+				for(var i:int = 0; i < activeSlider.length; i++){
+					if(sliderArray[i] == e.target && sliderArray[i].value <= detachEnd && sliderArray[i].value >= detachBeginning){
+						for(var j:int = 0; j < activeSlider.length; j++){
+							activeSlider[j] = false;
+							sliderArray[j].thumb.visible = false;
+						}
+						sliderArray[i].thumb.visible = true;
+						activeSlider[i] = true;
+						player.playerDisplay.seek(sliderArray[i].value);
+						sliderActiveIndex = i;						
+					}
+					else{
+						var value:Number = player.playerDisplay.videoDisplay.currentTime;
+						if(sliderArray[0] == e.target && sliderArray[0].value < detachBeginning){
+							sliderArray[0].mouseChildren = false;
+							if(activeSlider[0] == true){
+								sliderArray[0].value = value;
+								player.playerDisplay.seek(value);
+							}								
+						}
+						else{
+							if(sliderArray[i] == e.target && sliderArray[i].value > detachEnd){
+								sliderArray[i].mouseChildren = false;
+								
+								if(activeSlider[activeSlider.length - 1] == true){
+									sliderArray[i].value = value;
+									player.playerDisplay.seek(value);
+								}
+								else{
+									sliderArray[i].thumb.visible = false;
+									sliderArray[0].thumb.visible = true;
+									activeSlider[i] = false;
+									activeSlider[0] = true;
+									sliderArray[0].value = detachBeginning;
+									player.playerDisplay.seek(detachBeginning);
+									sliderActiveIndex = 0;								
+									count = 0;
+								}
+							}							
+						}
+					}
+					
+					if(sliderArray[i].value > detachEnd){
+						//trace("Chegou ao final da barra");
+						sliderArray[i].thumb.visible = false;
+						sliderArray[0].thumb.visible = true;
+						activeSlider[i] = false;
+						activeSlider[0] = true;
+						for(var k:int = 0; k < activeSlider.length; k++){
+							sliderArray[k].value = sliderArray[k].minimum;
+						}
+						sliderArray[0].value = detachBeginning;
+						sliderActiveIndex = 0;								
+						count = 0;							
+					}					
+				}
+				for(j = 0; j < activeSlider.length; j++){
+					sliderArray[j].mouseChildren = true;
+				}			
+			}			
+			
+			//feito
+			private function slider_thumbPressHandler(evt:TrackBaseEvent):void {
+				if(player.playerDisplay.videoDisplay.playing){
+					player.playerDisplay.videoDisplay.pause();
+					wasPlayingBeforeSeeking = true;					
+				}
+				
+			}
+			
+			//feito
+			private function slider_thumbReleaseHandler(evt:TrackBaseEvent):void {
+				if(wasPlayingBeforeSeeking){
+					player.playerDisplay.videoDisplay.play();
+					wasPlayingBeforeSeeking = false;
+				}				
+			}
+			
+			//feito
+			protected function slider_thumbDragHandler(event:TrackBaseEvent):void
+			{
+				//trace("dragged");
+				player.playerDisplay.seek(player.slider.value);	
+				if(silenceSlidersDrawn){
+					for(var j:int = 0; j < activeSlider.length; j++){
+						if(activeSlider[sliderActiveIndex] == true){
+							sliderTrackArray[sliderActiveIndex].value = player.slider.value;							
+						}
+					}					
+				}
+			}
+			
+			//feito
+			private function slider_changeHandler(event:Event):void
+			{
+				player.playerDisplay.seek(player.slider.value);
+				
+				if(silenceSlidersDrawn){
+					for(var i:int = 0; i < sliderBoundariesArray.length; i++){
+						//trace("player: " + player.slider.value + " array(0): " + sliderBoundariesArray[i].minimum + " array(1): " + sliderBoundariesArray[i].maximum);
+						if(player.slider.value >= sliderBoundariesArray[i].minimum && player.slider.value <= sliderBoundariesArray[i].maximum){
+							for(var j:int = 0; j < activeSlider.length; j++){
+								activeSlider[j] = false;
+								sliderTrackArray[j].thumb.visible = false;								
+							}
+							sliderTrackArray[i].thumb.visible = true;
+							activeSlider[i] = true;
+							sliderTrackArray[i].value = player.slider.value;
+							sliderActiveIndex = i;
+						}
+					}
+				}
+			}			
+			/* ****************************************************************************************************/			
+			
+			//handler que encontra a duracao do video assim que é carregado
+			protected function player_frameConstructedHandler(event:Event):void
+			{
+				// TODO Auto-generated method stub
+				if(player.playerDisplay.duration > 0){
+					player.slider.maximum = player.playerDisplay.duration;
+					labelUtil.constrainTextToWidth(player.durationDisplay, formatTimeValue(player.playerDisplay.duration));
+					labelUtil.constrainTextToWidth(player.currentDisplay, "0:00");
+					player.removeEventListener(Event.FRAME_CONSTRUCTED, player_frameConstructedHandler);
+					
+					createSilenceFile();						
+				}				
+			}	
+			
+			//handler utilizado quando o video inteiro termina para redefinir a fonte e o inicio
+			protected function player_completeHandler(event:TimeEvent):void
+			{
+				player.playerDisplay.stop();
+				player.playerDisplay.source = lbl.text;
+				player.playerDisplay.pause();				
+			}
+			
+			protected function dropdownlist1_changeHandler(event:IndexChangeEvent):void
+			{
+				switch(event.newIndex)
+				{
+					case 0:
+					{
+						dropDownListSelection = 2;						
+						break;
+					}
+					case 1:
+					{
+						dropDownListSelection = 4;						
+						break;
+					}
+					case 2:	
+					{
+						dropDownListSelection = 6;						
+						break;
+					}
+					case 3:
+					{
+						dropDownListSelection = 7;						
+						break;
+					}
+					default:
+					{
+						break;
+					}
+				}
+				
+			}
+
+			private var event;	
+			private var dragEvent;
+			private var changeEvent;
+			private var pressEvent;
+			private var releaseEvent;
+			private var sliderBoundariesArray:ArrayCollection = new ArrayCollection();	
+			private var lastOption:int = -2;
+			//funcao chamada quando o usuario filtra o intervalo de silencio e pressiona o botao OK
+			private function okButtonHandler():void{
+				if(elementDrawn && lastOption != dropDownListSelection){					
+					/*for(var j:int = elementIndexCounter.pop(); j >= elementIndexCounter[0]; j--){
+						removeElementAt(j);							
+					}*/
+					var index:int;
+					for(var j:int = elementIndexCounter.length - 1; j >= 0; j--){						
+						index = elementIndexCounter[j];
+						silenceBarsContainer.removeElementAt(index);																		
+					}
+					
+					elementIndexCounter.removeAll();
+					sliderTrackArray.removeAll();
+					sliderActiveIndex = 0;	
+					sliderBoundariesArray.removeAll();
+					count = 0;	
+					for(var k:int = 0; k < activeSlider.length - 1; k++){
+						activeSlider[sliderActiveIndex] = false;
+					}
+					activeSlider[0] = true;
+					player.playerDisplay.seek(detachBeginning);
+					
+					//remocao dos eventListeners
+					player.slider.removeEventListener(Event.EXIT_FRAME, event);		
+					sliderTrackArray.removeEventListener(TrackBaseEvent.THUMB_PRESS, pressEvent);				
+					sliderTrackArray.removeEventListener(TrackBaseEvent.THUMB_DRAG, dragEvent);
+					sliderTrackArray.removeEventListener(TrackBaseEvent.THUMB_RELEASE, releaseEvent);
+					sliderTrackArray.removeEventListener(Event.CHANGE, changeEvent);
+				}			
+				
+				if(dropDownListSelection != -1 && dropDownListSelection != lastOption){
+					var initialTime:Number = 0;
+					var destaque:Object = tasks.getItemAt(myDG.selectedIndex);
+					var slidersAmount:int;
+					var incrementer:int = 0;
+					//var posY:int = 148;
+					var posY:int = 20;
+					var intervalMinimum:Number, intervalMaximum:Number;
+					var firstMinimum:Boolean = true;
+					var fillWhite:Boolean = true;
+					var slidersTotal:int;								
+					
+					if(timeInSeconds(destaque.tInicial)%60 != 0){
+						initialTime = timeInSeconds(destaque.tInicial) - (timeInSeconds(destaque.tInicial)%60);
+					}
+					
+					var detachSize:Number = timeInSeconds(destaque.tFinal) - initialTime;								
+					
+					slidersAmount = detachSize/60;
+					if((detachSize/60)%60 != 0){
+						slidersAmount++;
+					}
+					slidersTotal = slidersAmount;
+					
+					var teste:int = 0;
+					
+					addEventListener("trackHighlightComplete", trackHighlightComplete);
+					
+					while(slidersAmount != 1 /*&& teste != 1*/){						
+						var silenceSlider:MultiThumbHSlider = new MultiThumbHSlider();
+						var timeValues:ArrayCollection = new ArrayCollection();
+						var accentColor:Array = new Array();
+							
+						silenceSlider.visible = true;
+						//silenceSlider.x = 638;
+						silenceSlider.x = 13;
+						silenceSlider.y = posY;
+						silenceSlider.width = 676;
+						silenceSlider.height = 16;
+						silenceSlider.showTrackHighlight = true;
+						silenceSlider.accentColors = ["0xFFFFFF"];
+						silenceSlider.minimum = initialTime + incrementer;
+						silenceSlider.maximum = 60 + initialTime + incrementer;
+						intervalMinimum = silenceSlider.minimum;
+						intervalMaximum = silenceSlider.maximum;
+						
+						var boundaries:Object = new Object();
+						boundaries.minimum = intervalMinimum;
+						boundaries.maximum = intervalMaximum;
+						sliderBoundariesArray.addItem(boundaries);
+						
+						if(firstMinimum){
+							intervalMinimum = timeInSeconds(destaque.tInicial);
+							silenceSlider.setIntervalBeginning(intervalMinimum);
+							firstMinimum = false;								
+						}
+						
+						timeValues = selectIntervals(intervalMinimum, intervalMaximum);	
+						allTimesSelected.addAll(timeValues);
+						
+						for(var i:int = 0; i < timeValues.length; i++){							
+							if(timeValues.getItemAt(i).label != ""){
+								accentColor.push("0xFF0000");  //vermelho								
+							}
+							else{								
+								if(!firstMinimum && fillWhite){
+									fillWhite = false;
+									accentColor.push("0xFFFFFF");									
+								}
+								else
+									//accentColor.push("0xEDF6E0"); //cinza claro usado antes
+									accentColor.push("0xB7BCAF"); //cinza claro									
+							}							
+						}						
+						silenceSlider.dataProvider = timeValues;
+						silenceSlider.accentColors = accentColor;
+						
+						//addElement(silenceSlider);
+						silenceBarsContainer.addElement(silenceSlider);
+						
+						var silenceSliderTracker:spark.components.HSlider = new spark.components.HSlider();
+						//silenceSliderTracker.x = 630;
+						silenceSliderTracker.x = 13;
+						silenceSliderTracker.y = posY;
+						silenceSliderTracker.width = 680;
+						silenceSliderTracker.height = 16;
+						silenceSliderTracker.minimum = silenceSlider.minimum;
+						silenceSliderTracker.maximum = silenceSlider.maximum;
+						silenceSliderTracker.value = intervalMinimum;
+						
+						//addElement(silenceSliderTracker);
+						silenceBarsContainer.addElement(silenceSliderTracker);
+						silenceSliderTracker.track.alpha = 0;	
+						silenceSliderTracker.setStyle("liveDragging", true);
+						sliderTrackArray.addItem(silenceSliderTracker);
+						
+						/* ******* Events of silenceSliders ******* */
+						pressEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbPressHandler(sliderTrackArray, 0);}
+						silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_PRESS, pressEvent);
+						
+						dragEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbDragHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+							timeInSeconds(destaque.tFinal));}							
+						silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_DRAG, dragEvent);
+						
+						releaseEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbReleaseHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+							timeInSeconds(destaque.tFinal));}
+						silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_RELEASE, releaseEvent);
+						
+						changeEvent = function(e:Event):void{silenceSlider_changeHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+							timeInSeconds(destaque.tFinal), e);}
+						silenceSliderTracker.addEventListener(Event.CHANGE, changeEvent);
+						/* ******* ********************** ******* */
+											
+						silenceSliderTracker.thumb.visible = false;	
+						
+						//elementIndexCounter.push(getElementIndex(silenceSlider));
+						elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSlider));
+						elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSliderTracker));
+						
+						silenceSlider.validateProperties();							
+						silenceSlider.minimum = initialTime + incrementer;
+						silenceSlider.maximum = 60 + initialTime + incrementer;
+										
+						slidersAmount--;
+						incrementer+=60;
+						posY+=40;	
+						teste++;
+					}//end of while that fill all the slider except the last one
+					
+					silenceSlider = new MultiThumbHSlider();
+					timeValues = new ArrayCollection();
+					accentColor = new Array();						
+					
+					silenceSlider.visible = true;
+					silenceSlider.x = 13;
+					silenceSlider.y = posY;
+					silenceSlider.width = 676;
+					silenceSlider.height = 16;
+					silenceSlider.showTrackHighlight = true;
+					silenceSlider.accentColors = ["0xFFFFFF"];
+					silenceSlider.minimum = initialTime + incrementer;
+					silenceSlider.maximum = 60 + initialTime + incrementer;	
+					intervalMinimum = silenceSlider.minimum;
+					intervalMaximum = timeInSeconds(destaque.tFinal);
+					
+					boundaries = new Object();					
+					boundaries.minimum = intervalMinimum;
+					boundaries.maximum = intervalMaximum;
+					sliderBoundariesArray.addItem(boundaries);
+					
+					silenceSlider.setIntervalEnd(intervalMaximum);					
+					timeValues = selectIntervals(intervalMinimum, intervalMaximum);	
+					allTimesSelected.addAll(timeValues);
+					
+					for(i = 0; i < timeValues.length; i++){
+						if(timeValues.getItemAt(i).label != ""){
+							accentColor.push("0xFF0000");  //vermelho								
+						}
+						else{
+							accentColor.push("0xB7BCAF"); //cinza claro					
+						}							
+					}							
+					silenceSlider.dataProvider = timeValues;
+					silenceSlider.accentColors = accentColor;
+					
+					//addElement(silenceSlider);
+					silenceBarsContainer.addElement(silenceSlider);
+					
+					silenceSliderTracker = new spark.components.HSlider();
+					silenceSliderTracker.x = 13;
+					silenceSliderTracker.y = posY;
+					silenceSliderTracker.width = 680;
+					silenceSliderTracker.height = 16;
+					silenceSliderTracker.minimum = silenceSlider.minimum;
+					silenceSliderTracker.maximum = silenceSlider.maximum;
+					
+					//addElement(silenceSliderTracker);
+					silenceBarsContainer.addElement(silenceSliderTracker);
+										
+					silenceSliderTracker.track.alpha = 0;	
+					sliderTrackArray.addItem(silenceSliderTracker);
+					silenceSliderTracker.thumb.visible = false;
+					silenceSliderTracker.setStyle("liveDragging", true);
+					
+					/* ******* Events of silenceSliders ******* */
+					event = function(e:Event):void{vamola(sliderTrackArray, timeInSeconds(destaque.tFinal));};
+					player.slider.addEventListener(Event.EXIT_FRAME, event);
+					
+					pressEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbPressHandler(sliderTrackArray, 0);}
+					silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_PRESS, pressEvent);
+					
+					dragEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbDragHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+						timeInSeconds(destaque.tFinal));}
+					silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_DRAG, dragEvent);
+					
+					releaseEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbReleaseHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+						timeInSeconds(destaque.tFinal));}
+					silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_RELEASE, releaseEvent);
+					
+					changeEvent = function(e:Event):void{silenceSlider_changeHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+						timeInSeconds(destaque.tFinal), e);}
+					silenceSliderTracker.addEventListener(Event.CHANGE, changeEvent);
+					/* ******* ********************** ******* */
+									
+					//elementIndexCounter.push(getElementIndex(silenceSlider));
+					elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSlider));
+					elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSliderTracker));
+					
+					silenceSlider.validateProperties();	
+					silenceSlider.minimum = initialTime + incrementer;
+					silenceSlider.maximum = 60 + initialTime + incrementer;
+					
+					silenceSlidersDrawn = true;
+					activeSlider = new Array(slidersTotal);
+					editionIcons.visible = true;
+					barsContainer.visible = true;
+					elementDrawn = true;					
+					addEventListener("labelClicked", intervalSelected);	
+					lastOption = dropDownListSelection;
+				}
+			}
+			
+			private var firstTime:Boolean = true;	
+			private var forward:Boolean = true;
+			private var back:Boolean = false;
+			private var timeControl:Number = 0;
+			private function vamola(sliderArray:ArrayCollection, detachEnd:Number):void{
+				var finish:Boolean = false;	
+				var forward:Boolean, back:Boolean;	
+				if(sliderActiveIndex <= sliderArray.length - 1){
+					//trace("player.currentTime: " + player.playerDisplay.videoDisplay.currentTime + "  timeControl: " + timeControl + " res: " + (player.playerDisplay.videoDisplay.currentTime - timeControl));										
+					if((player.playerDisplay.videoDisplay.currentTime - timeControl) >= 0){
+						timeControl = player.playerDisplay.videoDisplay.currentTime;
+						forward = true;
+						back = false;
+					}
+					else{
+						timeControl = player.playerDisplay.videoDisplay.currentTime;
+						forward = false;
+						back = true;
+					}
+					
+					if(forward){
+						//forward
+						//trace("entrou no forward");
+						if(sliderActiveIndex > 0 /*&& player.playerDisplay.videoDisplay.playing*/){
+							//trace("1");
+							sliderArray[sliderActiveIndex-1].thumb.visible = false;
+							activeSlider[sliderActiveIndex-1] = false;
+						}					
+						//trace(sliderArray[i].value + " " + detachEnd);
+						if(sliderArray[sliderActiveIndex].value == detachEnd){
+							//trace("chegou ao fim");
+							sliderArray[sliderActiveIndex].thumb.visible = false;
+							sliderArray[sliderActiveIndex].value = sliderArray[sliderActiveIndex].minimum;
+							sliderArray[0].thumb.visible = true;
+							sliderArray[0].value = player.slider.value;
+							sliderActiveIndex = 0;						
+						}
+						else{
+							sliderArray[sliderActiveIndex].thumb.visible = true;
+							activeSlider[sliderActiveIndex] = true;
+							//firstTime = false;
+							//trace("2");						
+						}
+						
+						if(sliderArray[sliderActiveIndex].value <= sliderArray[sliderActiveIndex].maximum && !finish && 
+							sliderArray[sliderActiveIndex].value != detachEnd && player.playerDisplay.videoDisplay.playing){
+							sliderArray[sliderActiveIndex].value = player.slider.value;	
+							//trace("2.2" + " ->" + sliderArray[sliderActiveIndex].value);
+						}
+						if((sliderArray[sliderActiveIndex].value == sliderArray[sliderActiveIndex].maximum && !finish) || 
+							sliderArray[sliderActiveIndex].value == detachEnd){						
+							finish = true;
+							count++;
+							//trace("3");
+						}		
+						if(finish && count == 1){
+							sliderActiveIndex++;
+							count = 0;
+							//trace("terminou " + sliderActiveIndex);					
+						}	
+					}
+					else
+						if(back){
+							//trace("***************************back*******************************************");
+							if((sliderArray[sliderActiveIndex].value == sliderArray[sliderActiveIndex].minimum) && sliderActiveIndex > 0){
+								for(var j:int = 0; j < activeSlider.length; j++){
+									sliderArray[j].value = sliderArray[j].minimum;
+								}
+								sliderArray[sliderActiveIndex].thumb.visible = false;
+								activeSlider[sliderActiveIndex] = false;
+								sliderArray[sliderActiveIndex-1].thumb.visible = true;
+								activeSlider[sliderActiveIndex-1] = true;
+								sliderArray[sliderActiveIndex-1].value = player.slider.value;
+								sliderActiveIndex--;						
+							}
+							else{
+							sliderArray[sliderActiveIndex].thumb.visible = true;
+							activeSlider[sliderActiveIndex] = true;
+							//firstTime = false;
+							//trace("2");						
+							}						
+						}
+					}
+			}
+			
+			private function intervalSelected(event:MouseEventWithInfo):void{
+				editionIcons.visible = true;
+				var labelSelected:String = event.getInfo();
+				addEventListener(MouseEvent.CLICK, editionIconsVisibility);
+				editionIcons.text.addEventListener(MouseEvent.CLICK, function(e:Event):void{textEdition(labelSelected);});
+				editionIcons.image.addEventListener(MouseEvent.CLICK, function(e:Event):void{imageEdition(labelSelected);});
+				editionIcons.voice.addEventListener(MouseEvent.CLICK, function(e:Event):void{voiceEdition(labelSelected);});
+				//trace("Valor do label " + event.getInfo());				
+			}
+			
+			private function textEdition(labelSelected:String):void{
+				trace("Label selecionado: " + labelSelected);				
+				var timesArray:ArrayCollection = new ArrayCollection();
+				//trace("Valores selecionados: ");
+				for(var i:int = 0; i < allTimesSelected.length; i++){
+					//trace("Value: " + allTimesSelected.getItemAt(i).value);
+					if(allTimesSelected.getItemAt(i).label == labelSelected){
+						timesArray.addItem(allTimesSelected.getItemAt(i - 1).value);
+						timesArray.addItem(allTimesSelected.getItemAt(i).value);
+					}						
+				}
+				trace("Valores do intervalo:");
+				for(i = 0; i < timesArray.length; i++){
+					trace(timesArray.getItemAt(i));
+				}
+			}
+			
+			private function imageEdition(labelSelected:String):void{
+				
+			}
+			
+			private function voiceEdition(labelSelected:String):void{
+				
+			}
+			
+			private function editionIconsVisibility(event:MouseEvent):void{
+				editionIcons.visible = false;
+			}
+			
+			private function trackHighlightComplete(event:TrackHighlightEvent):void{
+				//trace("Terminou de setar os dados");
+				trackHighlightArray = new ArrayCollection();
+				trackHighlightArray = event.getInfo();
+							
+				for(var k:int = 0; k < trackHighlightArray.length; k++){
+					var sliderTrackHighlight:SliderTrackHighlight = new SliderTrackHighlight();
+					sliderTrackHighlight = SliderTrackHighlight(trackHighlightArray.getItemAt(k));							
+					trackHighlightItens.addItem(trackHighlightArray.getItemAt(k));													
+				}
+				trackHighlightArray.removeAll();
+				
+				addEventListener("labelRollOver", highlightIntervalsTrue);				
+			}
+			
+			private function highlightIntervalsTrue(event:MouseEventWithInfo):void{
+				addEventListener("labelRollOut", highlightIntervalsFalse);
+				for(var k:int = 0; k < trackHighlightItens.length; k++){
+					var sliderTrackHighlight:SliderTrackHighlight = new SliderTrackHighlight();
+					sliderTrackHighlight = SliderTrackHighlight(trackHighlightItens.getItemAt(k));							
+					//trace("Todos: " + sliderTrackHighlight.label);	
+					if(sliderTrackHighlight.label == event.getInfo() && sliderTrackHighlight.label != ""){
+						sliderTrackHighlight.alpha = 0.5;
+					}
+				}				
+			}
+			private function highlightIntervalsFalse(event:MouseEventWithInfo):void{
+				for(var k:int = 0; k < trackHighlightItens.length; k++){
+					var sliderTrackHighlight:SliderTrackHighlight = new SliderTrackHighlight();
+					sliderTrackHighlight = SliderTrackHighlight(trackHighlightItens.getItemAt(k));							
+					//trace("Todos: " + sliderTrackHighlight.label);	
+					if(sliderTrackHighlight.label == event.getInfo()){
+						sliderTrackHighlight.alpha = 1;
+					}
+				}				
+			}
+			
+			private function selectIntervals(intervalMinimum:Number, intervalMaximum:Number):ArrayCollection{
+				var secTime:int;
+				var line:String;
+				var line2:String;
+				var time:String;
+								
+				var time1:Number, time2:Number;
+				var timesArray:ArrayCollection = new ArrayCollection();
+				var file:File = new File(silenceFile);
+				var stream:FileStreamWithLineReader = new FileStreamWithLineReader();
+				var hasMinimum:Boolean = true;
+				var hasMaximum:Boolean = false;
+				stream.open(file, FileMode.READ);
+				
+				line = stream.readUTFLine();
+				line2 = stream.readUTFLine();					
+				time1 = timeInSeconds(line.substring(0,8));
+				time2 = timeInSeconds(line.substring(17,25));
+				
+				var pointMarker1:Object = new Object();
+				var pointMarker2:Object = new Object();
+				pointMarker1.value = intervalMinimum;
+				pointMarker1.label = "";
+				pointMarker1.fixedValue = true;
+				timesArray.addItem(pointMarker1);
+				
+				
+				while(stream.bytesAvailable && (time1 < intervalMaximum)){
+					pointMarker1 = new Object();
+					pointMarker2 = new Object();
+														
+					time = line2.substring(2,7);
+					
+					if(parseInt(time.substring(0,2)) > 0){
+						secTime = parseInt(time.substring(3,6)) + parseInt(time.substring(0,2))*60;
+					}
+					else{
+						secTime = parseInt(time.substring(3,6));
+					}
+										
+					//busca por valores menores ou iguais aos escolhidos no dropDownListSelection
+					if(dropDownListSelection != -1){
+						if(secTime >= dropDownListSelection && time2 > intervalMinimum){
+							//trace("intervalMinimum: " + intervalMinimum + ", time1: " + time1 + " time2: " + time2);
+							if(time1 <= intervalMinimum ){
+								if(time1 <= intervalMinimum && time2 > intervalMaximum){
+									//trace("1");
+								}									
+								else{
+									labelCounter++;
+									//trace("2");
+								}														
+							}
+							else{
+								if(!hasMinimum){
+									labelCounter++;
+									//trace("3");
+									pointMarker1.value = time1;
+									pointMarker1.label = "";
+									pointMarker1.fixedValue = true;
+									timesArray.addItem(pointMarker1);
+								}
+							}
+							
+							if(time2 >= intervalMaximum)	{
+								//variavel que verifica se existe anterior
+								pointMarker2.value = intervalMaximum;
+								pointMarker2.label = "I" + labelCounter.toString();
+								pointMarker2.fixedValue = true;
+								timesArray.addItem(pointMarker2);
+								hasMaximum = true;
+								if(time2 > intervalMaximum)
+									intervalFit = false;
+								//trace("21");
+							}							
+							else{
+								pointMarker2.value = time2;
+								pointMarker2.fixedValue = true;
+								if(intervalFit){
+									pointMarker2.label = "I" + labelCounter.toString();
+									//trace("22");
+								}
+								else{
+									pointMarker2.label = "I" + (labelCounter - 1).toString();
+									intervalFit = true;
+									//trace("23");
+								}
+								
+								//trace("time2");
+								timesArray.addItem(pointMarker2);									
+							}						
+						}							
+						stream.readUTFLine();					
+					}					
+					line = stream.readUTFLine();
+					line2 = stream.readUTFLine();					
+					time1 = timeInSeconds(line.substring(0,8));
+					time2 = timeInSeconds(line.substring(17,25));
+					hasMinimum = false;					
+				}		
+				
+				if(!hasMaximum){
+					pointMarker2 = new Object();
+					pointMarker2.value = intervalMaximum;
+					pointMarker2.label = "";
+					pointMarker2.fixedValue = true;
+					timesArray.addItem(pointMarker2);		
+				}
+				
+				return timesArray;
+			}			
+					
+		]]>
+	</fx:Script>
+	
+	<mx:Button id="btn1" x="286" y="158" width="180" label="Selecionar video"
+			   click="btn_click(event)" horizontalCenter="0"/>		
+	<mx:Label id="lbl" y="182" width="350" horizontalCenter="-84"/>
+	<mx:Label id="t" x="10" y="48" visible="false"/>
+	<mx:Button id="cancel" visible="false" y="182" width="30" label="X" click="cancel_click(event)"
+			   color="#ff0000" horizontalCenter="110"/> 
+	<mx:Button id="btn2" x="286" y="206" width="180" label="Iniciar" visible="false" click="testeSilence(event)" horizontalCenter="0"/>	
+		
+	<s:Label id="msg1" x="242" y="80" width="270" height="48" fontFamily="Arial" fontSize="21"
+			 text="Ferramenta para autoria de conteúdo complementar" textAlign="center"
+			 verticalAlign="middle" horizontalCenter="0"/>
+	
+	<s:Image id="logo" width="148" height="86" horizontalCenter="595" source="assets/logo.png"
+			 verticalCenter="293" />	
+	<s:Label id="msgDestaques" y="100" width="270" height="48" fontFamily="Arial" fontSize="21" visible="false"
+			 horizontalCenter="303" text="Destaques&#xd;" textAlign="center" verticalAlign="middle"/>
+	<local:PlayerComponent id="player" visible="false" y="72" width="534" height="379"
+						   horizontalCenter="-360"/>	
+	<local:CustomDataGrid id="myDG" visible="false" y="138" width="617" height="243"
+						  creationComplete="init()" dataProvider="{tasks}" editable="true"
+						  horizontalCenter="285" itemClick="editCell(event)" sortableColumns="false"
+						  itemEditBeginning="checkEdit(event)" itemEditEnd="editEnd(event)">
+		<local:columns>
+			<mx:DataGridColumn headerText="                               Nome do destaque" textAlign="left" width="500" 
+							   dataField="nomeDestaque" editable="true" editorDataField="text"/>
+			<mx:DataGridColumn headerText="Inicio" textAlign="center" dataField="tInicial" width="120" editable="true" />
+			<mx:DataGridColumn headerText="Fim" textAlign="center" dataField="tFinal" width="120" editable="true" />
+			<mx:DataGridColumn headerText=" " dataField="botaoEditar" width="55" editable="false">
+				<mx:itemRenderer>
+					<!--fx:Component>
+						<mx:Button label="editar" click="outerDocument.testeEditar()"/>												
+					</fx:Component-->
+					<fx:Component>
+						<mx:HBox label="editar" horizontalAlign="center">
+							<mx:Image source="@Embed(source='assets/editar.png')"
+									  buttonMode="true" click="outerDocument.testeEditar()"/>
+						</mx:HBox>
+					</fx:Component>
+				</mx:itemRenderer>				
+			</mx:DataGridColumn>
+			
+			<mx:DataGridColumn headerText=" " dataField="botaoExcluir" width="55" editable="false">
+				<mx:itemRenderer>
+					<!--fx:Component>
+						<mx:Button label="excluir" click="outerDocument.excluirDestaque()" />
+					</fx:Component-->
+					<fx:Component>
+						<mx:HBox label="excluir" horizontalAlign="center">
+							<mx:Image source="@Embed(source='assets/excluir.png')"
+									  buttonMode="true" click="outerDocument.excluirDestaque()"/>
+						</mx:HBox>
+					</fx:Component>
+				</mx:itemRenderer>
+			</mx:DataGridColumn>
+		</local:columns>
+	</local:CustomDataGrid>	
+	
+	<mx:MenuBar id="menuBar" visible="false" x="0" y="0" height="26" itemClick="menuHandler(event)"
+				labelField="@label" width="100%">
+		<fx:XMLList>	
+			<menuitem label="Projeto" data="top">
+				<menuitem label="Salvar" />
+				<menuitem label="Sair" enabled="false" />
+			</menuitem>
+			<menuitem label="Opções" data="top"/>
+			<menuitem label="Ajuda" data="top"/>			
+		</fx:XMLList>
+	</mx:MenuBar>
+	
+	<s:DropDownList id="dropDownList" visible="false" x="713" y="88" width="217" height="23"
+					prompt="Filtrar intervalos de silêncio"
+					change="dropdownlist1_changeHandler(event)"> 
+		<mx:ArrayCollection>
+			<fx:String>a partir de 2s</fx:String>
+			<fx:String>a partir de 4s</fx:String>
+			<fx:String>a partir de 6s</fx:String>
+			<fx:String>a partir de 8s</fx:String>			
+		</mx:ArrayCollection>
+	</s:DropDownList>			
+	<s:Button id="dropDownListOkButton" x="938" y="88" width="45" label="ok" 
+			  fontFamily="Arial" fontSize="12" visible="false" height="23" click="okButtonHandler()" />
+	<s:Button id="volta" x="55" y="478" width="76" label="voltar" visible="false" click="voltar(event)"/>
+	
+	<s:Button id="backButton" x="1207" y="446" label="Voltar" visible="false" click="backButton_clickHandler(event)"/>
+	<s:Button id="NCL_button" x="1181" y="476" label="Gerar NCL" visible="false" click="NCL_button_clickHandler(event)"/>
+	<local:EditionIcons id="editionIcons" x="982" y="9" width="332" height="142" visible="false"/>
+	
+	<s:Scroller id="barsContainer" x="611" y="140" width="722" height="310" visible="false">
+		<s:Group id="silenceBarsContainer" left="1" right="2" top="1" bottom="1"/>	
+	</s:Scroller>	
+	
+</s:WindowedApplication>

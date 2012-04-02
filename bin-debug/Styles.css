@@ -1,0 +1,39 @@
+/* CSS file */
+@namespace s "library://ns.adobe.com/flex/spark";
+@namespace mx "library://ns.adobe.com/flex/mx";
+
+s|DropDownList #labelDisplay
+{
+	font-size:13;	
+	fontFamily: Arial;	
+}
+
+.durationDisplay
+{
+	fontSize: 14;
+	fontFamily: Arial;	
+	verticalAlign: middle;
+	horizontalAlign: right;	
+}
+
+.currentDisplay
+{
+	fontSize: 14;
+	fontFamily: Arial;	
+	verticalAlign: middle;
+	horizontalAlign: center;	
+}
+
+s|Label
+{
+	fontSize: 16;
+	verticalAlign: middle;
+	horizontalAlign: center;	
+}
+
+global
+{
+	fontFamily: Arial;
+	fontSize: 13;
+}
+

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="347" height="152">
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexMouseEvent;
+			protected function text_mouseOverHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				text.width = 53;
+				text.height = 72;
+				text.x = 7;
+				text.y = -4;
+			}
+			
+			protected function text_mouseOutHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				text.width = 33;
+				text.height = 52;
+				text.x = 17;
+				text.y = 5;
+				text.alpha = 1;
+			}
+			
+			protected function image_mouseOverHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				image.width = 68;
+				image.height = 58;
+				image.x = 50;
+				image.y = -3;
+			}
+			
+			protected function image_mouseOutHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				image.width = 48;
+				image.height = 38;
+				image.x = 61;
+				image.y = 7;
+				image.alpha = 1;
+			}
+			
+			protected function voice_mouseOverHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				voice.width = 58;
+				voice.height = 58;
+				voice.x = 109;
+				voice.y = 1;
+			}			
+			
+			protected function voice_mouseOutHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				voice.width = 38;
+				voice.height = 38;
+				voice.x = 120;
+				voice.y = 11;
+				voice.alpha = 1;
+			}
+			
+			
+			protected function text_mouseDownHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				text.alpha = 0.7;
+			}
+			
+			
+			
+			protected function image_mouseDownHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				image.alpha = 0.7;
+			}
+			
+			protected function voice_mouseDownHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				voice.alpha = 0.7;
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:BorderContainer id="editionIcons" x="73" y="47" width="176" height="63" >
+		<s:Image id="text" x="17" y="5" width="33" height="52" source="assets/TXT.png" 
+				 mouseOver="text_mouseOverHandler(event)" mouseOut="text_mouseOutHandler(event)" 
+				 mouseDown="text_mouseDownHandler(event)" />
+		<s:Image id="image" x="61" y="7" width="48" height="38" source="assets/jpeg-file-icon.png"
+				 mouseOver="image_mouseOverHandler(event)" mouseOut="image_mouseOutHandler(event)"
+				 mouseDown="image_mouseDownHandler(event)"/>
+		<s:Image id="voice" x="120" y="11" width="38" height="38" source="assets/microfone.png"
+				 mouseOver="voice_mouseOverHandler(event)" mouseOut="voice_mouseOutHandler(event)"
+				 mouseDown="voice_mouseDownHandler(event)"/>
+	</s:BorderContainer>		
+</s:Group>
