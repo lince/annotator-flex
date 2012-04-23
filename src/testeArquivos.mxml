@@ -2,9 +2,12 @@
 <s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009"
 					   xmlns:s="library://ns.adobe.com/flex/spark"
 					   xmlns:mx="library://ns.adobe.com/flex/mx"
-					   width="100%" height="100%" backgroundColor="white" 
-					   xmlns:local="*" xmlns:FileManipulation="FileManipulation.*" 
-					   xmlns:IntervalsSlider="IntervalsSlider.*" initialize="windowedapplication1_initializeHandler(event)">	
+					   xmlns:local="*"
+					   xmlns:FileManipulation="FileManipulation.*"
+					   xmlns:IntervalsSlider="IntervalsSlider.*"
+					   xmlns:supportClasses="IntervalsSlider.supportClasses.*"
+					   width="100%" height="100%" backgroundColor="white"
+					   initialize="windowedapplication1_initializeHandler(event)">	
 	<fx:Style source="Styles.css"/>
 	
 	<fx:Declarations>
@@ -28,17 +31,24 @@
 			import XML.Destaque;
 			import XML.ObjectConverter;
 			
+			import flash.debugger.enterDebugger;
 			import flash.sampler.NewObjectSample;
 			import flash.utils.clearInterval;
 			import flash.utils.flash_proxy;
 			
+			import mx.charts.AreaChart;
 			import mx.charts.chartClasses.ChartElement;
 			import mx.charts.series.ColumnSeries;
 			import mx.collections.ArrayCollection;
 			import mx.collections.ArrayList;
 			import mx.collections.ICollectionView;
+			import mx.containers.ControlBar;
+			import mx.containers.Panel;
+			import mx.containers.VBox;
 			import mx.controls.Alert;
 			import mx.controls.DataGrid;
+			import mx.controls.ProgressBarMode;
+			import mx.controls.Spacer;
 			import mx.controls.TextInput;
 			import mx.controls.VideoDisplay;
 			import mx.controls.listClasses.ListBase;
@@ -59,6 +69,7 @@
 			import mx.events.SliderEvent;
 			import mx.events.StateChangeEvent;
 			import mx.events.VideoEvent;
+			import mx.managers.PopUpManager;
 			import mx.messaging.Channel;
 			import mx.rpc.xml.SimpleXMLDecoder;
 			import mx.utils.object_proxy;
@@ -67,6 +78,7 @@
 			import org.osmf.events.TimeEvent;
 			
 			import spark.components.HSlider;
+			import spark.components.Panel;
 			import spark.components.VideoDisplay;
 			import spark.components.mediaClasses.ScrubBar;
 			import spark.components.supportClasses.ListBase;
@@ -76,6 +88,7 @@
 			import spark.events.IndexChangeEvent;
 			import spark.events.TrackBaseEvent;
 			
+					
 			private static const ADD_TASK:String = "Clique aqui para adicionar destaque";
 			
 			[Bindable]
@@ -100,7 +113,8 @@
 			private var activeSlider:Array = new Array();
 			private var wasPlayingBeforeSeeking:Boolean;
 			private var silenceSlidersDrawn:Boolean = false;
-			private	var sliderTrackArray:ArrayCollection = new ArrayCollection();			
+			private	var sliderTrackArray:ArrayCollection = new ArrayCollection();	
+			private var allSilenceSliders:ArrayCollection = new ArrayCollection();
 			
 			[Bindable]
 			private var rowCount:int = 0;				
@@ -1213,13 +1227,12 @@
 			private var pressEvent;
 			private var releaseEvent;
 			private var sliderBoundariesArray:ArrayCollection = new ArrayCollection();	
-			private var lastOption:int = -2;
+			private var lastOption:int = -2;					
 			//funcao chamada quando o usuario filtra o intervalo de silencio e pressiona o botao OK
-			private function okButtonHandler():void{
+			public function okButtonHandler():void{
 				if(elementDrawn && lastOption != dropDownListSelection){					
-					/*for(var j:int = elementIndexCounter.pop(); j >= elementIndexCounter[0]; j--){
-						removeElementAt(j);							
-					}*/
+					//var progressBarIncrementer:int = 0;
+					//progressBar.visible = true;					
 					var index:int;
 					for(var j:int = elementIndexCounter.length - 1; j >= 0; j--){						
 						index = elementIndexCounter[j];
@@ -1255,7 +1268,12 @@
 					var intervalMinimum:Number, intervalMaximum:Number;
 					var firstMinimum:Boolean = true;
 					var fillWhite:Boolean = true;
-					var slidersTotal:int;								
+					var slidersTotal:int;
+					
+					progressBar.x = barsContainer.x + 280;
+					progressBar.y = barsContainer.y + 130;
+					progressBar.visible = true;
+					//silenceBarsContainer.addElement(progressBar);
 					
 					if(timeInSeconds(destaque.tInicial)%60 != 0){
 						initialTime = timeInSeconds(destaque.tInicial) - (timeInSeconds(destaque.tInicial)%60);
@@ -1269,15 +1287,15 @@
 					}
 					slidersTotal = slidersAmount;
 					
-					var teste:int = 0;
-					
 					addEventListener("trackHighlightComplete", trackHighlightComplete);
+					setProgress(0,100);
 					
-					while(slidersAmount != 1 /*&& teste != 1*/){						
+					
+					UIUtilities.pausingFor(0, slidersTotal-1, function(i:int) : void {
 						var silenceSlider:MultiThumbHSlider = new MultiThumbHSlider();
 						var timeValues:ArrayCollection = new ArrayCollection();
 						var accentColor:Array = new Array();
-							
+						
 						silenceSlider.visible = true;
 						//silenceSlider.x = 638;
 						silenceSlider.x = 13;
@@ -1305,27 +1323,29 @@
 						timeValues = selectIntervals(intervalMinimum, intervalMaximum);	
 						allTimesSelected.addAll(timeValues);
 						
-						for(var i:int = 0; i < timeValues.length; i++){							
-							if(timeValues.getItemAt(i).label != ""){
+						for(var j:int = 0; j < timeValues.length; j++){							
+							if(timeValues.getItemAt(j).label != ""){
 								accentColor.push("0xFF0000");  //vermelho								
 							}
 							else{								
 								if(!firstMinimum && fillWhite){
 									fillWhite = false;
-									accentColor.push("0xFFFFFF");									
+									accentColor.push("0xFFFFFF");	//branco								
 								}
 								else
-									//accentColor.push("0xEDF6E0"); //cinza claro usado antes
 									accentColor.push("0xB7BCAF"); //cinza claro									
 							}							
 						}						
 						silenceSlider.dataProvider = timeValues;
 						silenceSlider.accentColors = accentColor;
 						
+						allSilenceSliders.addItem(timeValues);
+						allSilenceSliders.addItem(silenceSlider);
+						
 						//addElement(silenceSlider);
 						silenceBarsContainer.addElement(silenceSlider);
 						
-						var silenceSliderTracker:spark.components.HSlider = new spark.components.HSlider();
+						var silenceSliderTracker:HSlider = new HSlider();
 						//silenceSliderTracker.x = 630;
 						silenceSliderTracker.x = 13;
 						silenceSliderTracker.y = posY;
@@ -1338,7 +1358,7 @@
 						//addElement(silenceSliderTracker);
 						silenceBarsContainer.addElement(silenceSliderTracker);
 						silenceSliderTracker.track.alpha = 0;	
-						silenceSliderTracker.setStyle("liveDragging", true);
+						//silenceSliderTracker.setStyle("liveDragging", true);
 						sliderTrackArray.addItem(silenceSliderTracker);
 						
 						/* ******* Events of silenceSliders ******* */
@@ -1357,8 +1377,9 @@
 							timeInSeconds(destaque.tFinal), e);}
 						silenceSliderTracker.addEventListener(Event.CHANGE, changeEvent);
 						/* ******* ********************** ******* */
-											
+						
 						silenceSliderTracker.thumb.visible = false;	
+						silenceSliderTracker.setStyle("liveDragging", true);
 						
 						//elementIndexCounter.push(getElementIndex(silenceSlider));
 						elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSlider));
@@ -1367,105 +1388,120 @@
 						silenceSlider.validateProperties();							
 						silenceSlider.minimum = initialTime + incrementer;
 						silenceSlider.maximum = 60 + initialTime + incrementer;
-										
-						slidersAmount--;
+						
 						incrementer+=60;
 						posY+=40;	
-						teste++;
-					}//end of while that fill all the slider except the last one
-					
-					silenceSlider = new MultiThumbHSlider();
-					timeValues = new ArrayCollection();
-					accentColor = new Array();						
-					
-					silenceSlider.visible = true;
-					silenceSlider.x = 13;
-					silenceSlider.y = posY;
-					silenceSlider.width = 676;
-					silenceSlider.height = 16;
-					silenceSlider.showTrackHighlight = true;
-					silenceSlider.accentColors = ["0xFFFFFF"];
-					silenceSlider.minimum = initialTime + incrementer;
-					silenceSlider.maximum = 60 + initialTime + incrementer;	
-					intervalMinimum = silenceSlider.minimum;
-					intervalMaximum = timeInSeconds(destaque.tFinal);
-					
-					boundaries = new Object();					
-					boundaries.minimum = intervalMinimum;
-					boundaries.maximum = intervalMaximum;
-					sliderBoundariesArray.addItem(boundaries);
-					
-					silenceSlider.setIntervalEnd(intervalMaximum);					
-					timeValues = selectIntervals(intervalMinimum, intervalMaximum);	
-					allTimesSelected.addAll(timeValues);
-					
-					for(i = 0; i < timeValues.length; i++){
-						if(timeValues.getItemAt(i).label != ""){
-							accentColor.push("0xFF0000");  //vermelho								
-						}
-						else{
-							accentColor.push("0xB7BCAF"); //cinza claro					
-						}							
-					}							
-					silenceSlider.dataProvider = timeValues;
-					silenceSlider.accentColors = accentColor;
-					
-					//addElement(silenceSlider);
-					silenceBarsContainer.addElement(silenceSlider);
-					
-					silenceSliderTracker = new spark.components.HSlider();
-					silenceSliderTracker.x = 13;
-					silenceSliderTracker.y = posY;
-					silenceSliderTracker.width = 680;
-					silenceSliderTracker.height = 16;
-					silenceSliderTracker.minimum = silenceSlider.minimum;
-					silenceSliderTracker.maximum = silenceSlider.maximum;
-					
-					//addElement(silenceSliderTracker);
-					silenceBarsContainer.addElement(silenceSliderTracker);
-										
-					silenceSliderTracker.track.alpha = 0;	
-					sliderTrackArray.addItem(silenceSliderTracker);
-					silenceSliderTracker.thumb.visible = false;
-					silenceSliderTracker.setStyle("liveDragging", true);
-					
-					/* ******* Events of silenceSliders ******* */
-					event = function(e:Event):void{vamola(sliderTrackArray, timeInSeconds(destaque.tFinal));};
-					player.slider.addEventListener(Event.EXIT_FRAME, event);
-					
-					pressEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbPressHandler(sliderTrackArray, 0);}
-					silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_PRESS, pressEvent);
-					
-					dragEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbDragHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
-						timeInSeconds(destaque.tFinal));}
-					silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_DRAG, dragEvent);
-					
-					releaseEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbReleaseHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
-						timeInSeconds(destaque.tFinal));}
-					silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_RELEASE, releaseEvent);
-					
-					changeEvent = function(e:Event):void{silenceSlider_changeHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
-						timeInSeconds(destaque.tFinal), e);}
-					silenceSliderTracker.addEventListener(Event.CHANGE, changeEvent);
-					/* ******* ********************** ******* */
-									
-					//elementIndexCounter.push(getElementIndex(silenceSlider));
-					elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSlider));
-					elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSliderTracker));
-					
-					silenceSlider.validateProperties();	
-					silenceSlider.minimum = initialTime + incrementer;
-					silenceSlider.maximum = 60 + initialTime + incrementer;
-					
-					silenceSlidersDrawn = true;
-					activeSlider = new Array(slidersTotal);
-					editionIcons.visible = true;
-					barsContainer.visible = true;
-					elementDrawn = true;					
-					addEventListener("labelClicked", intervalSelected);	
-					lastOption = dropDownListSelection;
+						barsContainer.visible = true;	
+						//trace("valores de incrementer e posY: " + incrementer + " " + posY);
+						//trace(i);
+						
+						//desenha a ultima barrinha
+						if(i == (slidersTotal-2)){
+							//trace("Desenha ultima parte");
+							silenceSlider = new MultiThumbHSlider();
+							timeValues = new ArrayCollection();
+							accentColor = new Array();
+							var intervalMinimum:Number, intervalMaximum:Number;
+							
+							//progressBar.removeEventListener(Event.COMPLETE, progressBarEndEvent);	
+							progressBar.visible = false;
+							
+							//trace("FINAL: incrementer e posY: " + incrementer + " " + posY);	
+							silenceSlider.visible = true;
+							silenceSlider.x = 13;
+							silenceSlider.y = posY;
+							silenceSlider.width = 676;
+							silenceSlider.height = 16;
+							silenceSlider.showTrackHighlight = true;
+							silenceSlider.accentColors = ["0xFFFFFF"];
+							silenceSlider.minimum = initialTime + incrementer;
+							silenceSlider.maximum = 60 + initialTime + incrementer;	
+							intervalMinimum = silenceSlider.minimum;
+							intervalMaximum = timeInSeconds(destaque.tFinal);
+							
+							boundaries = new Object();					
+							boundaries.minimum = intervalMinimum;
+							boundaries.maximum = intervalMaximum;
+							sliderBoundariesArray.addItem(boundaries);
+							
+							silenceSlider.setIntervalEnd(intervalMaximum);					
+							timeValues = selectIntervals(intervalMinimum, intervalMaximum);	
+							allTimesSelected.addAll(timeValues);
+							
+							for(var i:int = 0; i < timeValues.length; i++){
+								if(timeValues.getItemAt(i).label != ""){
+									accentColor.push("0xFF0000");  //vermelho								
+								}
+								else{
+									accentColor.push("0xB7BCAF"); //cinza claro					
+								}							
+							}							
+							silenceSlider.dataProvider = timeValues;
+							silenceSlider.accentColors = accentColor;
+							
+							//addElement(silenceSlider);
+							silenceBarsContainer.addElement(silenceSlider);
+							
+							silenceSliderTracker = new HSlider();
+							silenceSliderTracker.x = 13;
+							silenceSliderTracker.y = posY;
+							silenceSliderTracker.width = 680;
+							silenceSliderTracker.height = 16;
+							silenceSliderTracker.minimum = silenceSlider.minimum;
+							silenceSliderTracker.maximum = silenceSlider.maximum;
+							
+							//addElement(silenceSliderTracker);
+							silenceBarsContainer.addElement(silenceSliderTracker);
+							
+							silenceSliderTracker.track.alpha = 0;	
+							sliderTrackArray.addItem(silenceSliderTracker);
+							silenceSliderTracker.thumb.visible = false;
+							silenceSliderTracker.setStyle("liveDragging", true);
+							
+							// ******* Events of silenceSliders ******* 
+							event = function(e:Event):void{vamola(sliderTrackArray, timeInSeconds(destaque.tFinal));};
+							player.slider.addEventListener(Event.EXIT_FRAME, event);
+							
+							pressEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbPressHandler(sliderTrackArray, 0);}
+							silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_PRESS, pressEvent);
+							
+							dragEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbDragHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+								timeInSeconds(destaque.tFinal));}
+							silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_DRAG, dragEvent);
+							
+							releaseEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbReleaseHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+								timeInSeconds(destaque.tFinal));}
+							silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_RELEASE, releaseEvent);
+							
+							changeEvent = function(e:Event):void{silenceSlider_changeHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+								timeInSeconds(destaque.tFinal), e);}
+							silenceSliderTracker.addEventListener(Event.CHANGE, changeEvent);
+							/* ******* ********************** *******/ 
+							
+							//elementIndexCounter.push(getElementIndex(silenceSlider));
+							elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSlider));
+							elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSliderTracker));
+							
+							silenceSlider.validateProperties();	
+							silenceSlider.minimum = initialTime + incrementer;
+							silenceSlider.maximum = 60 + initialTime + incrementer;
+							
+							silenceSlidersDrawn = true;
+							activeSlider = new Array(slidersTotal);
+							editionIcons.visible = true;
+							barsContainer.visible = true;
+							elementDrawn = true;					
+							//addEventListener("labelClicked", intervalSelected);	
+							lastOption = dropDownListSelection;
+							
+							//editionIcons.text.addEventListener(MouseEvent.CLICK, );
+							//editionIcons.image.addEventListener(MouseEvent.CLICK, );
+							editionIcons.voice.addEventListener(MouseEvent.CLICK, function(e:MouseEvent):void{voiceEdition(sliderTrackArray);});
+							editionIcons.image.addEventListener(MouseEvent.CLICK, imageEdition);
+						}						
+					},setProgress ,this); //end of the loop										
 				}
-			}
+			}		
 			
 			private var firstTime:Boolean = true;	
 			private var forward:Boolean = true;
@@ -1552,88 +1588,12 @@
 					}
 			}
 			
-			private function intervalSelected(event:MouseEventWithInfo):void{
-				editionIcons.visible = true;
-				var labelSelected:String = event.getInfo();
-				addEventListener(MouseEvent.CLICK, editionIconsVisibility);
-				editionIcons.text.addEventListener(MouseEvent.CLICK, function(e:Event):void{textEdition(labelSelected);});
-				editionIcons.image.addEventListener(MouseEvent.CLICK, function(e:Event):void{imageEdition(labelSelected);});
-				editionIcons.voice.addEventListener(MouseEvent.CLICK, function(e:Event):void{voiceEdition(labelSelected);});
-				//trace("Valor do label " + event.getInfo());				
-			}
-			
-			private function textEdition(labelSelected:String):void{
-				trace("Label selecionado: " + labelSelected);				
-				var timesArray:ArrayCollection = new ArrayCollection();
-				//trace("Valores selecionados: ");
-				for(var i:int = 0; i < allTimesSelected.length; i++){
-					//trace("Value: " + allTimesSelected.getItemAt(i).value);
-					if(allTimesSelected.getItemAt(i).label == labelSelected){
-						timesArray.addItem(allTimesSelected.getItemAt(i - 1).value);
-						timesArray.addItem(allTimesSelected.getItemAt(i).value);
-					}						
-				}
-				trace("Valores do intervalo:");
-				for(i = 0; i < timesArray.length; i++){
-					trace(timesArray.getItemAt(i));
-				}
-			}
-			
-			private function imageEdition(labelSelected:String):void{
-				
-			}
-			
-			private function voiceEdition(labelSelected:String):void{
-				
-			}
-			
-			private function editionIconsVisibility(event:MouseEvent):void{
-				editionIcons.visible = false;
-			}
-			
-			private function trackHighlightComplete(event:TrackHighlightEvent):void{
-				//trace("Terminou de setar os dados");
-				trackHighlightArray = new ArrayCollection();
-				trackHighlightArray = event.getInfo();
-							
-				for(var k:int = 0; k < trackHighlightArray.length; k++){
-					var sliderTrackHighlight:SliderTrackHighlight = new SliderTrackHighlight();
-					sliderTrackHighlight = SliderTrackHighlight(trackHighlightArray.getItemAt(k));							
-					trackHighlightItens.addItem(trackHighlightArray.getItemAt(k));													
-				}
-				trackHighlightArray.removeAll();
-				
-				addEventListener("labelRollOver", highlightIntervalsTrue);				
-			}
-			
-			private function highlightIntervalsTrue(event:MouseEventWithInfo):void{
-				addEventListener("labelRollOut", highlightIntervalsFalse);
-				for(var k:int = 0; k < trackHighlightItens.length; k++){
-					var sliderTrackHighlight:SliderTrackHighlight = new SliderTrackHighlight();
-					sliderTrackHighlight = SliderTrackHighlight(trackHighlightItens.getItemAt(k));							
-					//trace("Todos: " + sliderTrackHighlight.label);	
-					if(sliderTrackHighlight.label == event.getInfo() && sliderTrackHighlight.label != ""){
-						sliderTrackHighlight.alpha = 0.5;
-					}
-				}				
-			}
-			private function highlightIntervalsFalse(event:MouseEventWithInfo):void{
-				for(var k:int = 0; k < trackHighlightItens.length; k++){
-					var sliderTrackHighlight:SliderTrackHighlight = new SliderTrackHighlight();
-					sliderTrackHighlight = SliderTrackHighlight(trackHighlightItens.getItemAt(k));							
-					//trace("Todos: " + sliderTrackHighlight.label);	
-					if(sliderTrackHighlight.label == event.getInfo()){
-						sliderTrackHighlight.alpha = 1;
-					}
-				}				
-			}
-			
 			private function selectIntervals(intervalMinimum:Number, intervalMaximum:Number):ArrayCollection{
 				var secTime:int;
 				var line:String;
 				var line2:String;
 				var time:String;
-								
+				
 				var time1:Number, time2:Number;
 				var timesArray:ArrayCollection = new ArrayCollection();
 				var file:File = new File(silenceFile);
@@ -1658,7 +1618,7 @@
 				while(stream.bytesAvailable && (time1 < intervalMaximum)){
 					pointMarker1 = new Object();
 					pointMarker2 = new Object();
-														
+					
 					time = line2.substring(2,7);
 					
 					if(parseInt(time.substring(0,2)) > 0){
@@ -1667,7 +1627,7 @@
 					else{
 						secTime = parseInt(time.substring(3,6));
 					}
-										
+					
 					//busca por valores menores ou iguais aos escolhidos no dropDownListSelection
 					if(dropDownListSelection != -1){
 						if(secTime >= dropDownListSelection && time2 > intervalMinimum){
@@ -1739,29 +1699,253 @@
 				
 				return timesArray;
 			}			
+			
+			private function trackHighlightComplete(event:TrackHighlightEvent):void{
+				//trace("Terminou de setar os dados");
+				trackHighlightArray = new ArrayCollection();
+				trackHighlightArray = event.getInfo();
+				
+				for(var k:int = 0; k < trackHighlightArray.length; k++){
+					var sliderTrackHighlight:SliderTrackHighlight = new SliderTrackHighlight();
+					sliderTrackHighlight = SliderTrackHighlight(trackHighlightArray.getItemAt(k));							
+					trackHighlightItens.addItem(trackHighlightArray.getItemAt(k));													
+				}
+				trackHighlightArray.removeAll();
+				
+				addEventListener("labelRollOver", highlightIntervalsTrue);				
+			}
+			
+			private function highlightIntervalsTrue(event:MouseEventWithInfo):void{
+				addEventListener("labelRollOut", highlightIntervalsFalse);
+				for(var k:int = 0; k < trackHighlightItens.length; k++){
+					var sliderTrackHighlight:SliderTrackHighlight = new SliderTrackHighlight();
+					sliderTrackHighlight = SliderTrackHighlight(trackHighlightItens.getItemAt(k));							
+					//trace("Todos: " + sliderTrackHighlight.label);	
+					if(sliderTrackHighlight.label == event.getInfo() && sliderTrackHighlight.label != ""){
+						sliderTrackHighlight.alpha = 0.5;
+					}
+				}				
+			}			
+			
+			private function highlightIntervalsFalse(event:MouseEventWithInfo):void{
+				for(var k:int = 0; k < trackHighlightItens.length; k++){
+					var sliderTrackHighlight:SliderTrackHighlight = new SliderTrackHighlight();
+					sliderTrackHighlight = SliderTrackHighlight(trackHighlightItens.getItemAt(k));							
+					//trace("Todos: " + sliderTrackHighlight.label);	
+					if(sliderTrackHighlight.label == event.getInfo()){
+						sliderTrackHighlight.alpha = 1;
+					}
+				}				
+			}
+			
+			private function setProgress(processed : int, amountThatNeedsToBeProcessed : int) : void {
+				progressBar.setProgress(processed, amountThatNeedsToBeProcessed);				
+			}
 					
+			private function voiceEdition(sliderTrackArray:ArrayCollection):void{
+				//tirar visibilidade dos trackers
+				for(var i:int = 0; i < sliderTrackArray.length; i++){
+					sliderTrackArray[i].visible = false;					
+				}				
+				Alert.show("Selecione um dos intervalos de silêncio destacados","Aviso", Alert.OK);
+				addEventListener("labelClicked", intervalSelected);											
+			}
+			
+			private function intervalSelected(event:MouseEventWithInfo):void{
+				var labelSelected:String = event.getInfo();
+				//trace("Valor do label " + event.getInfo());	
+														
+				var timesArray:ArrayCollection = new ArrayCollection();
+				for(var i:int = 0; i < allTimesSelected.length; i++){
+					//trace("Value: " + allTimesSelected.getItemAt(i).value);
+					if(allTimesSelected.getItemAt(i).label == labelSelected){
+						timesArray.addItem(allTimesSelected.getItemAt(i - 1).value);
+						timesArray.addItem(allTimesSelected.getItemAt(i).value);
+					}						
+				}
+					
+				var voiceInterval:int = parseInt((timesArray.getItemAt(1)).toString()) - parseInt((timesArray.getItemAt(0)).toString());
+				//trace("Tempo do intervalo selecionado: " + voiceInterval);				
+				
+				var panel:spark.components.Panel = new spark.components.Panel;				
+				var label:spark.components.Label = new spark.components.Label();				
+				var b1:spark.components.Button = new spark.components.Button();
+				var b2:spark.components.Button = new spark.components.Button();
+				var voiceText:TextInput = new TextInput();			
+				
+				b1.label = "OK";				
+				b2.label = "Cancelar";
+				label.text = "Digite o texto a ser narrado:";
+				b1.left = 40;
+				b2.right = 40;
+				voiceText.y = 36;
+				voiceText.left = 20;
+				voiceText.right = 20;			
+				voiceText.height = 50;
+				voiceText.maxChars = voiceInterval*10;
+				label.right = 10;
+				label.left = 10;
+				label.y = 10;
+				b1.y = 102;
+				b2.y = 102;
+				
+				b1.addEventListener(MouseEvent.CLICK, function(e:MouseEvent):void{closePopUp_ok(panel, labelSelected, timesArray);});
+				b2.addEventListener(MouseEvent.CLICK, function(e:MouseEvent):void{closePopUp_cancel(panel);});
+							
+				panel.title = "Inserção de conteúdo de voz";
+				panel.width = 240;
+				panel.height = 180;
+				
+				panel.addElement(label);
+				panel.addElement(voiceText);
+				panel.addElement(b1);
+				panel.addElement(b2);
+				
+				PopUpManager.addPopUp(panel, this, true);
+				PopUpManager.centerPopUp(panel);						
+			}
+			
+			private function closePopUp_cancel(panel:spark.components.Panel):void{
+				PopUpManager.removePopUp(panel);				
+			}
+			
+			private var selectedLabelsArray:ArrayCollection = new ArrayCollection();
+			private function closePopUp_ok(panel:spark.components.Panel, labelSelected:String, timesArray:ArrayCollection):void{
+				PopUpManager.removePopUp(panel);
+				trace("closePopUp_ok");
+				var cleanColorArray:Array = new Array();				
+				var firstMinimum:Boolean = true;
+				var fillWhite:Boolean = true;
+				var timesValue:ArrayCollection = new ArrayCollection();	
+				trace("label selecionado " + labelSelected);
+				
+				/*if(firstMinimum){
+					intervalMinimum = timeInSeconds(destaque.tInicial);
+					silenceSlider.setIntervalBeginning(intervalMinimum);
+					firstMinimum = false;								
+				}*/
+				
+				for(var i:int = 0; i < allSilenceSliders.length; i++){
+					var accentColor:Array = new Array();
+					if(i >= 1){
+						firstMinimum = false;
+					}
+					if(i%2 == 0){
+						for(var j:int = 0; j < allSilenceSliders.getItemAt(i).length; j++){
+							//trace(allSilenceSliders.getItemAt(i)[j].label);
+							if(allSilenceSliders.getItemAt(i)[j].label == labelSelected){
+								for(var k:int = 0; k < allSilenceSliders.getItemAt(i).length; k++){
+									if(allSilenceSliders.getItemAt(i)[k].label != ""){
+										if(allSilenceSliders.getItemAt(i)[k].label == labelSelected){
+											trace("azul");
+											accentColor.push("0x0000FF");	//azul
+											selectedLabelsArray.addItem(labelSelected);
+										}
+										else{
+											accentColor.push("0xFF0000");  //vermelho
+											trace("vermelho");
+											for(var t:int = 0; t < selectedLabelsArray.length; t++){
+												trace("Labels selecionados: " + selectedLabelsArray.getItemAt(t));
+												if(allSilenceSliders.getItemAt(i)[k].label == selectedLabelsArray.getItemAt(t)){
+													accentColor.pop();
+													accentColor.push("0x0000FF");	//azul
+												}
+											}
+										}
+									}
+									else{
+										trace(firstMinimum + fillWhite);
+										if(firstMinimum && fillWhite){
+											fillWhite = false;
+											accentColor.push("0xFFFFFF");	//branco											
+										}
+										else
+											accentColor.push("0xB7BCAF"); //cinza claro									
+									}								
+								}
+								allSilenceSliders.getItemAt(i+1).accentColors = accentColor;
+							}
+						}						
+					}							
+				}
+			}
+			
+			private function textEdition(labelSelected:String):void{
+				trace("Label selecionado: " + labelSelected);				
+				var timesArray:ArrayCollection = new ArrayCollection();
+				//trace("Valores selecionados: ");
+				for(var i:int = 0; i < allTimesSelected.length; i++){
+					//trace("Value: " + allTimesSelected.getItemAt(i).value);
+					if(allTimesSelected.getItemAt(i).label == labelSelected){
+						timesArray.addItem(allTimesSelected.getItemAt(i - 1).value);
+						timesArray.addItem(allTimesSelected.getItemAt(i).value);
+					}						
+				}
+				trace("Valores do intervalo:");
+				for(i = 0; i < timesArray.length; i++){
+					trace(timesArray.getItemAt(i));
+				}
+			}
+			
+			private function imageEdition(event:MouseEvent):void{
+				imageEditionContainer.visible = true;
+				imageBegin.addEventListener(MouseEvent.CLICK, imageBeginTimeClick_handler);
+				imageEnd.addEventListener(MouseEvent.CLICK, imageEndTimeClick_handler);
+			}
+			
+			private function imageBeginTimeClick_handler(evt:MouseEvent):void{
+				imageBegin.text = formatTimeValue(player.playerDisplay.currentTime);					
+			}
+			
+			private function imageEndTimeClick_handler(evt:MouseEvent):void{
+				imageEnd.text = formatTimeValue(player.playerDisplay.currentTime);
+				imageSelection.visible = true;
+				imagePath.visible = true;	
+				imageSelection.addEventListener(MouseEvent.CLICK, imageSelection_handler);
+			}
+			
+			private function imageSelection_handler(evt:MouseEvent):void{
+				var file:File;	
+				file = new File();
+				file.addEventListener(Event.SELECT, image_selection);
+				file.browseForOpen("Please select a video...");	
+			}
+			
+			private function image_selection(evt:Event):void{
+				//var labelUtil:LabelUtil1 = new LabelUtil1();
+				//labelUtil.constrainTextToWidth(imagePath, File(evt.currentTarget).nativePath);
+				imagePath.text = File(evt.currentTarget).nativePath;
+				okImageSelection.visible = true;
+				okImageSelection.addEventListener(MouseEvent.CLICK, okImageSelection_handler);
+			}
+			
+			private function okImageSelection_handler(evt:Event):void{
+				imageDragArea.visible = true;
+				image.source = imagePath.text;				
+			}
+			
 		]]>
 	</fx:Script>
 	
-	<mx:Button id="btn1" x="286" y="158" width="180" label="Selecionar video"
-			   click="btn_click(event)" horizontalCenter="0"/>		
-	<mx:Label id="lbl" y="182" width="350" horizontalCenter="-84"/>
+	<s:Label id="msg1" width="270" height="48" fontFamily="Arial" fontSize="21"
+			 text="Ferramenta para autoria de conteúdo complementar" textAlign="center" top="80"
+			 horizontalCenter="0"/>
+	<mx:Button id="btn1" top="158" width="180" label="Selecionar video"
+			   click="btn_click(event)" horizontalCenter="0"/>
+	<s:Image id="logo" width="148" height="86" source="assets/logo.png" right="20" bottom="20" />		
+	<mx:Label id="lbl" top="182" width="350" horizontalCenter="-84"/>	
 	<mx:Label id="t" x="10" y="48" visible="false"/>
-	<mx:Button id="cancel" visible="false" y="182" width="30" label="X" click="cancel_click(event)"
+	<mx:Button id="cancel" visible="false" top="182" width="30" label="X" click="cancel_click(event)"
 			   color="#ff0000" horizontalCenter="110"/> 
-	<mx:Button id="btn2" x="286" y="206" width="180" label="Iniciar" visible="false" click="testeSilence(event)" horizontalCenter="0"/>	
-		
-	<s:Label id="msg1" x="242" y="80" width="270" height="48" fontFamily="Arial" fontSize="21"
-			 text="Ferramenta para autoria de conteúdo complementar" textAlign="center"
-			 verticalAlign="middle" horizontalCenter="0"/>
+	<mx:Button id="btn2" top="206" width="180" label="Iniciar" visible="false" click="testeSilence(event)" horizontalCenter="0"/>
+	<s:Button id="backButton" left="1207" top="446" label="Voltar" visible="false" click="backButton_clickHandler(event)"/>
+	<s:Button id="NCL_button" left="1181" top="476" label="Gerar NCL" visible="false" click="NCL_button_clickHandler(event)"/>
 	
-	<s:Image id="logo" width="148" height="86" horizontalCenter="595" source="assets/logo.png"
-			 verticalCenter="293" />	
-	<s:Label id="msgDestaques" y="100" width="270" height="48" fontFamily="Arial" fontSize="21" visible="false"
-			 horizontalCenter="303" text="Destaques&#xd;" textAlign="center" verticalAlign="middle"/>
-	<local:PlayerComponent id="player" visible="false" y="72" width="534" height="379"
+	<s:Label id="msgDestaques" top="100" width="270" height="48" fontFamily="Arial" fontSize="21" visible="false"
+			 horizontalCenter="303" text="Destaques" textAlign="center" verticalAlign="middle"/>
+	<local:PlayerComponent id="player" visible="false" top="72" width="534" height="379"
 						   horizontalCenter="-360"/>	
-	<local:CustomDataGrid id="myDG" visible="false" y="138" width="617" height="243"
+	<local:CustomDataGrid id="myDG" visible="false" top="138" width="617" height="243"
 						  creationComplete="init()" dataProvider="{tasks}" editable="true"
 						  horizontalCenter="285" itemClick="editCell(event)" sortableColumns="false"
 						  itemEditBeginning="checkEdit(event)" itemEditEnd="editEnd(event)">
@@ -1812,7 +1996,7 @@
 		</fx:XMLList>
 	</mx:MenuBar>
 	
-	<s:DropDownList id="dropDownList" visible="false" x="713" y="88" width="217" height="23"
+	<s:DropDownList id="dropDownList" visible="false" right="380" top="88" width="217" height="23"
 					prompt="Filtrar intervalos de silêncio"
 					change="dropdownlist1_changeHandler(event)"> 
 		<mx:ArrayCollection>
@@ -1822,16 +2006,46 @@
 			<fx:String>a partir de 8s</fx:String>			
 		</mx:ArrayCollection>
 	</s:DropDownList>			
-	<s:Button id="dropDownListOkButton" x="938" y="88" width="45" label="ok" 
+	<s:Button id="dropDownListOkButton" right="330" top="88" width="45" label="ok" 
 			  fontFamily="Arial" fontSize="12" visible="false" height="23" click="okButtonHandler()" />
-	<s:Button id="volta" x="55" y="478" width="76" label="voltar" visible="false" click="voltar(event)"/>
+	<s:Button id="volta" left="55" top="478" width="76" label="voltar" visible="false" click="voltar(event)"/>
 	
-	<s:Button id="backButton" x="1207" y="446" label="Voltar" visible="false" click="backButton_clickHandler(event)"/>
-	<s:Button id="NCL_button" x="1181" y="476" label="Gerar NCL" visible="false" click="NCL_button_clickHandler(event)"/>
-	<local:EditionIcons id="editionIcons" x="982" y="9" width="332" height="142" visible="false"/>
+	<local:EditionIcons id="editionIcons" right="30" top="9" width="332" height="142" visible="false"/>
 	
-	<s:Scroller id="barsContainer" x="611" y="140" width="722" height="310" visible="false">
-		<s:Group id="silenceBarsContainer" left="1" right="2" top="1" bottom="1"/>	
+	<s:Scroller id="barsContainer" top="140" right="35" width="722" height="310" visible="false" >
+		<s:Group id="silenceBarsContainer" left="5" right="5" top="1" bottom="1"/>	
 	</s:Scroller>	
 	
+	<mx:ProgressBar id="progressBar" visible="false" width="220"
+					label="Carregando dados %3%%" maximum="100" minimum="0" mode="manual" />
+	
+	<s:Group id="imageEditionContainer" visible="false" left="623" top="499" width="499" height="122">
+		<s:Label id="imageBeginText" visible="true" left="8" top="8" width="49" height="29" text="Início: "/>
+		<mx:TextInput id="imageBegin" visible="true" left="56" top="8" width="105" height="26"/>
+		<s:Label id="imageEndText" visible="true" left="15" top="37" width="43" height="29" text="Fim: "/>
+		<mx:TextInput id="imageEnd" visible="true" left="56" top="38" width="105" />
+		<s:Button id="imageSelection" visible="false" left="7" top="72" label="Selecionar imagem"/>
+		<mx:Label id="imagePath" visible="true" left="170" top="73" width="199" height="21" text=""/>
+		<s:Button id="okImageSelection" visible="false" left="377" top="72" width="47" label="OK"/>
+	</s:Group>
+	
+	<mx:Canvas id="imageDragArea" top="77" horizontalCenter="-361" width="514" height="343"
+			   borderStyle="solid" visible="false">			  
+		
+		<!-- The image is the drag initiator. -->
+		<mx:Image id="image" left="2" top="2" autoLoad="true"/>
+				 
+	</mx:Canvas>
+	
+	
+	
+	<!--mx:TextInput id="teste" x="62" y="185" maxChars="10" borderVisible="true" /-->
+	<!--s:Panel id="panel" visible="false" width="240" height="180" horizontalCenter="0" verticalCenter="0" -->
+		<!--s:Button id="okVoiceEdition" x="41" y="102" left="40" label="OK"/>
+		<s:Button id="cancelVoiceEdition" x="128" y="102" right="40" label="Cancelar"/>
+		<mx:TextInput id="voiceText" y="36" left="20" right="20" height="50"/>
+		<s:Label y="10" left="10" right="10" text="Digite o texto a ser narrado:"/-->
+	<!--/s:Panel-->
+	
+		
 </s:WindowedApplication>
