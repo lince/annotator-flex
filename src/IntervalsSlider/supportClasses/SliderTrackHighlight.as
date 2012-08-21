@@ -176,10 +176,11 @@ package IntervalsSlider.supportClasses
 				labelEditor.addEventListener( MouseEvent.CLICK, labelEditor_clickHandler );
 				labelEditor.addEventListener(MouseEvent.ROLL_OVER, labelEditor_rollOverHandler);
 				labelEditor.addEventListener(MouseEvent.MOUSE_OUT, labelEditor_mouseOutHandler);
-			}
+			}			
 		}	
 		
 		public function labelEditor_rollOverHandler(event:MouseEvent):void{
+			//trace("labelOver" + event.target);
 			var evento:MouseEventWithInfo = new MouseEventWithInfo("labelRollOver");			
 			evento.setInfo(labelEditor.text);
 			dispatchEvent(evento);	
@@ -187,6 +188,7 @@ package IntervalsSlider.supportClasses
 		}
 		
 		public function labelEditor_mouseOutHandler(event:MouseEvent):void{
+			//trace("labelOut");
 			var evento:MouseEventWithInfo = new MouseEventWithInfo("labelRollOut");			
 			evento.setInfo(labelEditor.text);
 			dispatchEvent(evento);	

@@ -414,7 +414,7 @@ package IntervalsSlider.supportClasses
 		{
 			var formatted_value: String = super.formattedValue;
 			hovered = true;
-			/* ********************************** */
+			/* ***********************************/ 
 			button.toolTip = formatted_value;
 			/* ********************************** */
 		}

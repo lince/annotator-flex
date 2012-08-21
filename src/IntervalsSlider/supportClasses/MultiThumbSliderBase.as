@@ -58,6 +58,7 @@ package IntervalsSlider.supportClasses
 	import spark.collections.SortField;
 	import spark.components.Button;
 	import spark.components.Group;
+	import spark.components.HSlider;
 	import spark.components.SkinnableContainer;
 	
 	[Style(name="slideDuration", type="Number", format="Time", inherit="no")]
@@ -135,6 +136,9 @@ package IntervalsSlider.supportClasses
 		private var count:int = 0;
 		public var trackHighlightArray:ArrayCollection = new ArrayCollection();
 		private var intervalBeginning:Number, intervalEnd:Number;
+		private var tracker:HSlider = new HSlider();
+		private var isImageSlider:Boolean = false;
+		private var isTextSlider:Boolean = false;
 		
 		//-------------------------------------------------------------------------------------------------
 		
@@ -173,6 +177,24 @@ package IntervalsSlider.supportClasses
 			return intervalEnd;
 		}		
 		
+		/* funcoes necessarias para mostrar ou nao no inicio da barra seu inicio */
+		public function set isImageContentSlider(imageSlider:Boolean):void{
+			this.isImageSlider = imageSlider;
+		}
+		
+		public function get isImageContentSlider():Boolean{
+			return isImageSlider;
+		}
+		
+		public function set isTextContentSlider(textSlider:Boolean):void{
+			this.isTextSlider = textSlider;
+		}
+		
+		public function get isTextContentSlider():Boolean{
+			return isTextSlider;
+		}
+		/* ---------------------------------------------------------------------- */
+		
 		//-------------------------------------------------------------------------------------------------
 		
 		//------------------------------ PROPERTIES - START -------------------------------------------------------------------
@@ -202,6 +224,14 @@ package IntervalsSlider.supportClasses
 			}
 		}
 		
+		public function set sliderTracker(tracker:HSlider):void{
+			this.tracker = tracker;
+		}
+		
+		public function get sliderTracker():HSlider{
+			return tracker;
+		}
+				
 		//-------------------------------------------------------------------------------------------------
 		
 		private var maximumChanged: Boolean = false;
@@ -565,6 +595,7 @@ package IntervalsSlider.supportClasses
 				//trace("Valores inseridos: " + track_highlight.label);
 			}				
 			var evento:TrackHighlightEvent = new TrackHighlightEvent("trackHighlightComplete");
+			//trace("enviou evento de highlight complete");
 			evento.setInfo(trackHighlightArray);
 			dispatchEvent(evento);	
 		}		
@@ -754,8 +785,7 @@ package IntervalsSlider.supportClasses
 					var index_of_dp_value: Number = newValues.indexOf( dp_value );
 					//trace(index_of_dp_value);
 					updateTrackHighlightColor( _thl, index_of_dp_value );					
-				}
-				
+				}				
 				accentColorsChanged = false;
 			}
 			
@@ -789,15 +819,20 @@ package IntervalsSlider.supportClasses
 			addElement(thumb_component);
 			thumbs.push(thumb_component);
 			
-			if(thumb_component.label.text == conversionUtil.formatTimeValue(minimum) ||
+			if((thumb_component.label.text == conversionUtil.formatTimeValue(minimum) ||
 				thumb_component.label.text == conversionUtil.formatTimeValue(maximum) ||
 				thumb_component.label.text == conversionUtil.formatTimeValue(getIntervalBeginning()) ||
-				thumb_component.label.text == conversionUtil.formatTimeValue(getIntervalEnd())){
+				thumb_component.label.text == conversionUtil.formatTimeValue(getIntervalEnd())) 
+				&& !isImageSlider && !isTextSlider){
 					
 					thumb_component.label.visible = true;				
 			}
-			else
-				thumb_component.label.visible = false;
+			else				
+					thumb_component.label.visible = false;
+			
+			if(isImageSlider || isTextSlider){
+				thumb_component.label.alpha = 0;
+			}			
 		}
 		
 		//-------------------------------------------------------------------------------------------------
@@ -876,8 +911,13 @@ package IntervalsSlider.supportClasses
 				updateTrackHighlightDisplay( track_highlight );
 				
 				contentGroupHighlight.addElement( track_highlight );
+				trackHighlightArray.addItem(track_highlight);
 				//trace("adicionou");
 			}
+			var evento:TrackHighlightEvent = new TrackHighlightEvent("trackHighlightComplete");
+			//trace("enviou evento de highlight complete");
+			evento.setInfo(trackHighlightArray);
+			dispatchEvent(evento);
 		}
 		
 		//-------------------------------------------------------------------------------------------------
@@ -1484,7 +1524,7 @@ package IntervalsSlider.supportClasses
 			
 			dp_item[ labelField ] = track_highlight.label;
 			dataProvider.itemUpdated( dp_item, labelField );
-			
+					
 			dispatchEvent( new MultiThumbSliderEvent( MultiThumbSliderEvent.LABEL_CHANGE ) );
 		}
 		
@@ -1531,7 +1571,7 @@ package IntervalsSlider.supportClasses
 		
 		//-------------------------------------------------------------------------------------------------
 		
-		private function getTrackHighlightAtValue( value: Number ): SliderTrackHighlight
+		public function getTrackHighlightAtValue( value: Number ): SliderTrackHighlight
 		{
 			var track_highlight: SliderTrackHighlight = null;
 			
