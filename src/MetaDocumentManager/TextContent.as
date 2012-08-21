@@ -12,6 +12,8 @@ package MetaDocumentManager
 		private var width:Number;
 		private var height:Number;
 		private var data:String;
+		private var tvType:Boolean;
+		private var mobileType:Boolean;
 				
 		public function TextContent()
 		{
@@ -109,6 +111,22 @@ package MetaDocumentManager
 		public function get textWidth():Number{
 			//retorna comprimento em %
 			return width;
+		}
+		
+		public function set textOnTv(tvType:Boolean):void{
+			this.tvType = tvType; 
+		}
+		
+		public function get textOnTv():Boolean{
+			return tvType;
+		}
+		
+		public function set textOnMobile(mobileType:Boolean):void{
+			this.mobileType = mobileType;
+		}
+		
+		public function get textOnMobile():Boolean{
+			return mobileType;
 		}
 	}
 }

@@ -15,9 +15,11 @@ package MetaDocumentManager
 		private var imageWidth_relative:Number;
 		private var originalHeight:Number;
 		private var originalWidth:Number;
+		private var mobileType:Boolean;
+		private var tvType:Boolean;
 				
 		public function ImageContent()
-		{
+		{			
 		}
 		
 		public function set imageId(id:String):void{
@@ -143,6 +145,22 @@ package MetaDocumentManager
 		
 		public function get original_imageHeight():Number{
 			return originalHeight;
+		}
+		
+		public function set imageOnTv(tvType:Boolean):void{
+			this.tvType = tvType; 
+		}
+				
+		public function get imageOnTv():Boolean{
+			return tvType;
+		}
+		
+		public function set imageOnMobile(mobileType:Boolean):void{
+			this.mobileType = mobileType;
+		}
+		
+		public function get imageOnMobile():Boolean{
+			return mobileType;
 		}
 		/* -------------------------------------------------------------------------------------- */		
 	}

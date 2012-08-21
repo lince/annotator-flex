@@ -3596,6 +3596,17 @@
 					fileStream.writeBytes(bytes);					
 					fileStream.close();
 					
+					/* acerta infos que descrevem os dispositivos que irão receber a midia de imagem*/
+					if(showImageOnTv.selected)
+						imageContent.imageOnTv = true;					
+					else
+						imageContent.imageOnTv = false;
+					
+					if(showImageOnMobile.selected)
+						imageContent.imageOnMobile = true;
+					else
+						imageContent.imageOnMobile = false;
+					
 					allContentInfo.addItem(imageContent);
 					imageContent = new ImageContent(); 	//cria novo objeto para ficar disponivel para receber novas info					
 															
@@ -3798,6 +3809,31 @@
 					textEdited.setStyle("borderAlpha", 0);
 				}
 				event.stopPropagation();
+			}			
+			
+			protected function text_height_changeHandler(event:Event):void
+			{
+				if(textArea_height.value >= textDragArea.height || textEdited.height > textDragArea.width){
+					textArea_height.value = imageDragArea.height;					
+				}
+				else{
+					textEdited.height = textArea_height.value;
+					textContent.textHeight = textEdited.height/originalHeight;
+				}							
+			}
+			
+			protected function text_width_changeHandler(event:Event):void
+			{
+				if(textArea_width.value > textDragArea.width || ((textEdited.x + textEdited.width) > textDragArea.width)){
+					while((textEdited.x + textEdited.width) > textDragArea.width){
+						textEdited.width--;
+						textContent.textWidth = textEdited.width;
+					}
+				}
+				else{
+					textEdited.width = textArea_width.value;
+					textContent.textWidth = textEdited.width;
+				}
 			}
 			
 			private function finishTextEdition_handler(event:MouseEvent):void{
@@ -4793,6 +4829,17 @@
 					trace(newFormat);
 					textContent.textData = newFormat;
 					
+					/* acerta infos que descrevem os dispositivos que irão receber a midia de texto*/
+					if(showTextOnTv.selected)
+						textContent.textOnTv = true;					
+					else
+						textContent.textOnTv = false;
+					
+					if(showTextOnMobile.selected)
+						textContent.textOnMobile = true;
+					else
+						textContent.textOnMobile = false;					
+					
 					//cria novo arquivo .html com texto formatado para ser lido pelo NCL
 					var textFile:File = File.documentsDirectory.resolvePath("AuthoringTool_projects/" + projectName_textInput.text + "/NCL/media/text/text" + textLabelCounter.toString() + ".html");
 					var fileStream:FileStream = new FileStream(); 
@@ -4845,32 +4892,7 @@
 					showTextOnTv.visible = false;
 					showTextOnMobile.visible = false;
 				}					
-			}
-			
-			protected function text_height_changeHandler(event:Event):void
-			{
-				if(textArea_height.value >= textDragArea.height || textEdited.height > textDragArea.width){
-					textArea_height.value = imageDragArea.height;					
-				}
-				else{
-					textEdited.height = textArea_height.value;
-					textContent.textHeight = textEdited.height/originalHeight;
-				}							
-			}
-			
-			protected function text_width_changeHandler(event:Event):void
-			{
-				if(textArea_width.value > textDragArea.width || ((textEdited.x + textEdited.width) > textDragArea.width)){
-					while((textEdited.x + textEdited.width) > textDragArea.width){
-						textEdited.width--;
-						textContent.textWidth = textEdited.width;
-					}
-				}
-				else{
-					textEdited.width = textArea_width.value;
-					textContent.textWidth = textEdited.width;
-				}
-			}
+			}			
 			
 			private function textIntervalSelected(event:MouseEventWithInfo):void{
 				var labelSelected:String = event.getInfo();
@@ -5248,8 +5270,8 @@
 				<s:Button id="okImageSelection" visible="false" left="377" top="72" width="47" label="OK"/>
 				<s:Button id="cancelImageEdition" visible="true" left="8" top="101" label="Cancelar"/>
 				<s:Button id="finishImageEdition" left="377" visible="false" top="101" label="Finalizar"/>
-				<s:CheckBox id="showImageOnTv" label="Mostrar na TV" top="13" left="200" selected="true" visible="false"/>
-				<s:CheckBox id="showImageOnMobile" label="Mostrar no Mobile" top="33" left="200" selected="false" visible="false"/>
+				<s:CheckBox id="showImageOnTv" label="TV" top="13" left="200" selected="true" visible="false"/>
+				<s:CheckBox id="showImageOnMobile" label="Mobile" top="33" left="200" selected="false" visible="false"/>
 				<s:Button id="excludeImage" left="97" top="101" label="Excluir" visible="false" />
 			</s:Group>
 		</s:BorderContainer> 
@@ -5286,8 +5308,8 @@
 				</mx:RichTextEditor>
 				<s:Button id="finishTextEdition" left="98" top="107" label="Finalizar" visible="false"/>
 				<s:Button id="cancelTextEdition" left="8" top="107" label="Cancelar" visible="true" click="cancelTextEdition_handler(event)"/>
-				<s:CheckBox id="showTextOnTv" label="Mostrar na TV" top="135" left="22" selected="true" visible="false"/>
-				<s:CheckBox id="showTextOnMobile" label="Mostrar no Mobile" top="155" left="22" selected="false" visible="false"/>
+				<s:CheckBox id="showTextOnTv" label="TV" top="135" left="22" selected="true" visible="false"/>
+				<s:CheckBox id="showTextOnMobile" label="Mobile" top="155" left="22" selected="false" visible="false"/>
 				<s:Button id="excludeText" left="65" top="185" label="Excluir" visible="false" />
 					
 				<mx:TextArea id="templateTextArea" left="195" top="60" height="95" visible="false"/>
