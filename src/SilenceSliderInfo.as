@@ -1,6 +1,6 @@
 package
 {
-	import IntervalsSlider.MultiThumbHSlider;
+	import UI_components.IntervalsSlider.MultiThumbHSlider;
 	
 	import mx.collections.ArrayCollection;
 	

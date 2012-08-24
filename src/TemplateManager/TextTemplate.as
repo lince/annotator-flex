@@ -17,10 +17,10 @@ package TemplateManager
 		}
 		
 		public function getTextStyle(myFormat:TextFormat):TextFormat{
-			myFormat.color = 0xFFFFFF;
-			myFormat.size = 20;
+			myFormat.color = 0x000000;
+			myFormat.size = 16;
 			myFormat.bold = true;
-			myFormat.font = "Arial";					
+			myFormat.font = "Arial";			
 							
 			return myFormat;
 		}	

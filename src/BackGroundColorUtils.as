@@ -1,5 +1,13 @@
-package
+package 
 {
+	/**
+	 * 
+	 * Classe responsável por fazer as conversões necessárias entre os tipos uint e string
+	 * As cores cadastradas são as aceitas pelo Ginga
+	 * string: especificação parar o NCL
+	 * uint: espeficificação usada para definir cor no Flex
+	 * 
+	 */	
 	public class BackGroundColorUtils
 	{		
 		private var white:uint = 0xFFFFFF;
@@ -18,11 +26,19 @@ package
 		private var navy:uint = 0x000080;
 		private var aqua:uint = 0x00FFFF;
 		private var teal:uint = 0x008080;
-					
+		
+		
 		public function BackGroundColorUtils()
 		{
 		}		
 		
+		/**
+		 * 
+		 * @param uintColor
+		 * @return
+		 * retorna a cor no formato de string da cor recebida como parâmetro em uint
+		 * 
+		 */		
 		public function get_stringColorName(uintColor:uint):String{
 			var stringColor:String;
 			if(uintColor == white){
@@ -106,6 +122,13 @@ package
 			return stringColor;
 		}
 		
+		/**
+		 * 
+		 * @param stringColor
+		 * @return
+		 * retorna a cor no formato uint da cor recebida como parametro
+		 * 
+		 */		
 		public function get_uintColor(stringColor:String):uint{
 			var uintColor:uint;
 			if(stringColor == "white"){

@@ -1,6 +1,6 @@
-package
+package 
 {
-	import IntervalsSlider.MultiThumbHSlider;
+	import UI_components.IntervalsSlider.MultiThumbHSlider;
 
 	public class ContentSlider
 	{

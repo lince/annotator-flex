@@ -14,6 +14,7 @@ package MetaDocumentManager
 		private var data:String;
 		private var tvType:Boolean;
 		private var mobileType:Boolean;
+		private var isTemplate:Boolean;
 				
 		public function TextContent()
 		{
@@ -65,6 +66,14 @@ package MetaDocumentManager
 		
 		public function get textBackgroundColor():String{
 			return backgroundColor;
+		}
+		
+		public function set hasTemplate(isTemplate:Boolean):void{
+			this.isTemplate = isTemplate;
+		}
+		
+		public function get hasTemplate():Boolean{
+			return isTemplate;
 		}
 		
 		public function set positionX(posX:Number):void{
