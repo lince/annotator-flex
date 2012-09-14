@@ -6,11 +6,23 @@ package XML
 	import mx.rpc.xml.SimpleXMLEncoder;
 	import mx.utils.ObjectUtil;
 	
+	/**
+	 * 
+	 * classe usada para converter objetos em XML
+	 * 
+	 */	
 	public class ObjectConverter
 	{
 		public function ObjectConverter(){
 		}
 		
+		/**
+		 * 
+		 * @param destaque
+		 * @return 
+		 * retorna objeto Destaque formatado em XML
+		 * 
+		 */		
 		public function objectToXML(destaque:Destaque):XML{
 			var qName:QName = new QName("form");
 			var xmlDocument:XMLDocument = new XMLDocument();

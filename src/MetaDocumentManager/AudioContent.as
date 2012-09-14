@@ -1,5 +1,11 @@
 package MetaDocumentManager
 {
+	/**
+	 * 
+	 * Classe que armazena todas as info de áudio. Usada posteriormente para a geração do XML que será utilizado
+	 * pelo XSLT para gerar o arquivo NCL
+	 * 
+	 */	
 	public class AudioContent
 	{
 		private var source:String;

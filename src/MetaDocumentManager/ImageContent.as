@@ -1,5 +1,11 @@
 package MetaDocumentManager
 {
+	/**
+	 * 
+	 * Classe que armazena todas as info de imagem. Usada posteriormente para a geração do XML que será utilizado
+	 * pelo XSLT para gerar o arquivo NCL
+	 * 
+	 */	
 	public class ImageContent
 	{
 		private var beginTime:Number;
@@ -62,49 +68,87 @@ package MetaDocumentManager
 			return source;
 		}
 		
-		public function set positionX(posX:Number):void{
-			//transforma coordenada vista na ferramenta para proporcional em porcentagem em NCL
-			//obs: 520px é a comprimento do video na ferramenta			
+		/**
+		 * 
+		 * @param posX
+		 * transforma coordenada vista na ferramenta para proporcional em porcentagem em NCL
+		 *	obs: 520px é a comprimento do video na ferramenta	
+		 * 
+		 */
+		public function set positionX(posX:Number):void{					
 			this.posX = parseFloat((posX/520).toFixed(2))*100;			
 		}
 		
-		public function get positionX():Number{
-			//retorna coordenada em %	
-			return posX;
-			//return parseFloat(((posX*520)/100).toFixed(0));			
+		/**
+		 * 
+		 * @return 
+		 * retorna coordenada em %
+		 */	
+		public function get positionX():Number{			
+			return posX;						
 		}
 		
+		/**
+		 * 
+		 * @param posY
+		 * transforma coordenada vista na ferramenta para proporcional em porcentagem em NCL
+		 *	obs: 340px é a altura do video na ferramenta
+		 */
 		public function set positionY(posY:Number):void{
-			//transforma coordenada vista na ferramenta para proporcional em porcentagem em NCL
-			//obs: 340px é a altura do video na ferramenta
 			this.posY = parseFloat((posY/340).toFixed(2))*100;		
 		}
 		
+		/**
+		 * 
+		 * @return 
+		 * retorna coordenada em %
+		 */
 		public function get positionY():Number{
 			//retorna coordenada em %
-			return posY;
-			//return parseFloat(((posY*340)/100).toFixed(0));			
+			return posY;					
 		}
 		
+		/**
+		 * 
+		 * @param height
+		 * seta valor da altura para valor em % para o NCL
+		 *	obs: 340px é a altura do video na ferramenta
+		 * 
+		 */
 		public function set imageHeight(height:Number):void{
-			//seta valor da altura para valor em % para o NCL
-			imageHeight_relative = height;
+			this.imageHeight_relative = height;			
 			this.height = parseFloat((height/340).toFixed(2))*100;			
 		}
 		
+		/**
+		 * 
+		 * @return 
+		 * retorna altura em %
+		 * 
+		 */	
 		public function get imageHeight():Number{
 			//retorna altura em %
 			return height;
 		}
 		
+		/**
+		 * 
+		 * @param width
+		 * seta valor do comprimento para valor em % para o NCL
+		 *	obs: 520px é a comprimento do video na ferramenta	
+		 * 
+		 */	
 		public function set imageWidth(width:Number):void{
-			//seta valor do comprimento para valor em % para o NCL
-			imageWidth_relative = width;
+			this.imageWidth_relative = width;
 			this.width = parseFloat((width/520).toFixed(2))*100;
 		}
 		
+		/**
+		 * 
+		 * @return 
+		 * retorna comprimento em %
+		 */
 		public function get imageWidth():Number{
-			//retorna comprimento em %
 			return width;
 		}
 		
@@ -115,6 +159,12 @@ package MetaDocumentManager
 			this.imageHeight_relative = imageHeight_relative;			
 		}
 		
+		/**
+		 * 
+		 * @return 
+		 * retorna altura relativa ao tamanho original da figura
+		 * 
+		 */		
 		public function get height_toolRelative():Number{
 			//retorna altura em %
 			return parseFloat((imageHeight_relative/originalHeight).toFixed(2))*originalHeight;
@@ -126,6 +176,12 @@ package MetaDocumentManager
 			this.imageWidth_relative = imageWidth_relative;
 		}
 		
+		/**
+		 * 
+		 * @return 
+		 * retorna comprimento relativo ao tamanho original da figura
+		 * 
+		 */
 		public function get width_toolRelative():Number{
 			//retorna comprimento em %
 			return parseFloat((imageWidth_relative/originalWidth).toFixed(2))*originalWidth;

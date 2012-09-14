@@ -15,11 +15,8 @@ package FileManipulation
 	 * Usage of the class is only recommended when one tends to read the data line by line
 	 * from a file stream. If the <code>readUTFLine()</code> or <code>readMultiByteLine()</code>
 	 * methods are not intended to be called, it will be preferable to use the <code>FileStream</code>
-	 * object, for performance reasons only.
-	 *
-	 * @author Sandeep Gupta
-	 * @version 1.0
-	 * @since 17 Dec 2010
+	 * object, for performance reasons only.	 *
+	 * 
 	 */
 	public class FileStreamWithLineReader extends FileStream {
 		

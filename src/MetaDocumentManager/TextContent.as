@@ -1,5 +1,11 @@
 package MetaDocumentManager
 {
+	/**
+	 * 
+	 * Classe que armazena todas as info de texto. Usada posteriormente para a geração do XML que será utilizado
+	 * pelo XSLT para gerar o arquivo NCL
+	 * 
+	 */
 	public class TextContent
 	{
 		private var beginTime:Number;
@@ -76,49 +82,83 @@ package MetaDocumentManager
 			return isTemplate;
 		}
 		
-		public function set positionX(posX:Number):void{
-			//transforma coordenada vista na ferramenta para proporcional em porcentagem em NCL
-			//obs: 520px é a comprimento do video na ferramenta			
+		/**
+		 * 
+		 * @param posX
+		 * transforma coordenada vista na ferramenta para proporcional em porcentagem em NCL
+		 *	obs: 520px é a comprimento do video na ferramenta	
+		 * 
+		 */		
+		public function set positionX(posX:Number):void{					
 			this.posX = parseFloat((posX/520).toFixed(2))*100;			
 		}
 		
-		public function get positionX():Number{
-			//retorna coordenada em %
-			return posX;
-			//return parseFloat(((posX*520)/100).toFixed(0));			
-		}
+		/**
+		 * 
+		 * @return 
+		 * retorna coordenada em %
+		 */		
+		public function get positionX():Number{			
+			return posX;					
+		}		
 		
-		public function set positionY(posY:Number):void{
-			//transforma coordenada vista na ferramenta para proporcional em porcentagem em NCL
-			//obs: 340px é a altura do video na ferramenta
+		/**
+		 * 
+		 * @param posY
+		 * transforma coordenada vista na ferramenta para proporcional em porcentagem em NCL
+		 *	obs: 340px é a altura do video na ferramenta
+		 */		
+		public function set positionY(posY:Number):void{			
 			this.posY = parseFloat((posY/340).toFixed(2))*100; 
 		}
 		
-		public function get positionY():Number{
-			//retorna coordenada em %
-			return posY;
-			//return parseFloat(((posY*340)/100).toFixed(0));
+		/**
+		 * 
+		 * @return 
+		 * retorna coordenada em %
+		 */		
+		public function get positionY():Number{			
+			return posY;			
 		}
 		
-		public function set textHeight(height:Number):void{
-			//seta valor da altura para valor em % para o NCL
-			//obs: 340px é a altura do video na ferramenta
+		/**
+		 * 
+		 * @param height
+		 * seta valor da altura para valor em % para o NCL
+		 *	obs: 340px é a altura do video na ferramenta
+		 * 
+		 */		
+		public function set textHeight(height:Number):void{			
 			this.height = parseFloat((height/340).toFixed(2))*100;		
 		}
 		
+		/**
+		 * 
+		 * @return 
+		 * retorna altura em %
+		 * 
+		 */		
 		public function get textHeight():Number{
-			//retorna altura em %
 			return height;
 		}
 		
-		public function set textWidth(width:Number):void{
-			//seta valor do comprimento para valor em % para o NCL
-			//obs: 520px é a comprimento do video na ferramenta	
+		/**
+		 * 
+		 * @param width
+		 * seta valor do comprimento para valor em % para o NCL
+		 *	obs: 520px é a comprimento do video na ferramenta	
+		 * 
+		 */		
+		public function set textWidth(width:Number):void{			
 			this.width = parseFloat((width/520).toFixed(2))*100;
 		}
 		
-		public function get textWidth():Number{
-			//retorna comprimento em %
+		/**
+		 * 
+		 * @return 
+		 * retorna comprimento em %
+		 */		
+		public function get textWidth():Number{			
 			return width;
 		}
 		

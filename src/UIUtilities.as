@@ -3,7 +3,13 @@ package
 	//import UIComponent.*;
 	
 	import mx.core.UIComponent;
-		
+	
+	/**
+	 * 
+	 * Classe usada para simular uma thread para poder desenhar as barras com intervalos de interesse 
+	 * com feedback de progresso para o usuário
+	 * 
+	 */	
 	public final class UIUtilities
 	{
 		/**

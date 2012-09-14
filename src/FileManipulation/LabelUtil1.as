@@ -13,12 +13,23 @@ package FileManipulation
 	import mx.styles.IStyleManager2;
 	import mx.styles.StyleManager;
 	
+	/**
+	 * 
+	 * Classe útil na representação de valores no label de forma que estes caibam no tamanho definido para o label
+	 * 
+	 */	
 	public class LabelUtil1
 	{
 		public function LabelUtil1()
 		{
 		}
 		
+		/**
+		 * 
+		 * @param label
+		 * @param htmlText
+		 * procedimento para comprimir tamanho da fonte para que texto caiba no label
+		 */		
 		public function constrainTextToWidth( label : Label, htmlText : String ) : void
 		{
 			var style: CSSStyleDeclaration = FlexGlobals.topLevelApplication.styleManager.getStyleDeclaration("." + label.styleName);			
@@ -37,6 +48,15 @@ package FileManipulation
 			}
 		}
 		
+		/**
+		 * 
+		 * @param text
+		 * @param fontSize
+		 * @param style
+		 * @return 
+		 * retorna tamanho do texto
+		 * 
+		 */		
 		static public function getTextWidth( text : String, fontSize : Number, style : CSSStyleDeclaration ) : Number
 		{
 			var textFormat : UITextFormat =

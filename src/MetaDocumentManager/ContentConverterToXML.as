@@ -7,12 +7,24 @@ package MetaDocumentManager
 	import mx.rpc.xml.SimpleXMLEncoder;
 	import mx.utils.ObjectUtil;
 	
+	/**
+	 * 
+	 * Classe utilizada no processo de conversão dos objetos com conteúdos complementares
+	 *	para XML para ser utilizada no processo de geração do NCL 
+	 * 
+	 */	
 	public class ContentConverterToXML
 	{
 		public function ContentConverterToXML()
 		{
 		}
 		
+		/**
+		 * 
+		 * @param contentSlider
+		 * @return 
+		 * retorna objeto formatado em XML
+		 */		
 		public function objectToXML(contentSlider:Object):XML{
 			var qName:QName = new QName("form");
 			var xmlDocument:XMLDocument = new XMLDocument();

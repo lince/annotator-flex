@@ -1,11 +1,22 @@
 package FileManipulation
 {
+	/**
+	 * 
+	 * classe responsável por conversões de formatos para exibição e armazenamento de valores
+	 * 
+	 */	
 	public class ConversionUtil
 	{
 		public function ConversionUtil()
 		{
 		}
 		
+		/**
+		 * 
+		 * @param value
+		 * @return 
+		 * retorna valor formatado em horas:minutos:segundos
+		 */		
 		public function formatTimeValue(value:Number):String
 		{
 			// default format: hours:minutes:seconds

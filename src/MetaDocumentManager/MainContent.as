@@ -1,5 +1,11 @@
 package MetaDocumentManager
 {
+	/**
+	 * 
+	 * Classe que armazena todas as info da mídia principal. Usada posteriormente para a geração do XML que será utilizado
+	 * pelo XSLT para gerar o arquivo NCL
+	 * 
+	 */
 	public class MainContent
 	{
 		private var project_name:String; 

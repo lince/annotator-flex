@@ -6,6 +6,12 @@ package
 	
 	import spark.components.HSlider;
 
+	/**
+	 * 
+	 * classe a ser usada para salvar informações dos sliders para depois redesenhar quando salvar XML 
+	 * Dica: lembrar de usar essa classe pra ver se consigo recuperar objeto inteiro das barrinhas quando salvar projeto e abrir de novo
+	 * 
+	 */	
 	public class SilenceSliderInfo
 	{
 		private var silenceSlider:MultiThumbHSlider = new MultiThumbHSlider();

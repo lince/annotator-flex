@@ -8,7 +8,7 @@
 					   xmlns:ns7="UI_components.IntervalsSlider.supportClasses.*"
 					   width="100%" height="100%" backgroundColor="white"
 					   initialize="windowedapplication1_initializeHandler(event)" 
-					   creationComplete="windowedapplication1_creationCompleteHandler(event)" xmlns:ns6="UI_components.ComboBox.*" xmlns:ns5="UI_components.*">	
+					   creationComplete="windowedapplication1_creationCompleteHandler(event)" xmlns:ns6="UI_components.ComboBox.*" xmlns:ns5="UI_components.*" xmlns:Narrator="Narrator.*" xmlns:SpecificFormattersManager="SpecificFormattersManager.*">	
 	<fx:Style source="Styles.css"/>
 	
 	<fx:Declarations>
@@ -16,7 +16,9 @@
 		<mx:DateFormatter id="dateFormatter" formatString="NN:SS"/>	
 		<!--fx:XML id="xsltFile" source="SpecificFormattersManager/xslt.xml"/-->
 		<fx:XML id="xsltFile" source="SpecificFormattersManager/xsltFile.xml"/>	
-		
+		<fx:XML id="XSL_mobile" source="SpecificFormattersManager/XSL_mobile.xml"/>
+		<fx:XML id="XSL_tvToMobile" source="SpecificFormattersManager/XSL_tvToMobile.xml"/>			
+				
 		<!-- XML list com as opções da barra de menus principal -->
 		<fx:XMLList id="menuList">	
 			<menuitem label="Projeto" data="top" index="0">
@@ -37,14 +39,6 @@
 			import FileManipulation.FileStreamWithLineReader;
 			import FileManipulation.LabelUtil1;
 			
-			import UI_components.IntervalsSlider.MultiThumbHSlider;
-			import UI_components.IntervalsSlider.SliderInfo;
-			import UI_components.IntervalsSlider.events.MouseEventWithInfo;
-			import UI_components.IntervalsSlider.events.ThumbEvent;
-			import UI_components.IntervalsSlider.events.TrackHighlightEvent;
-			import UI_components.IntervalsSlider.skins.track.HSliderWideTrackHighlightSkin;
-			import UI_components.IntervalsSlider.supportClasses.SliderTrackHighlight;
-			
 			import MetaDocumentManager.AudioContent;
 			import MetaDocumentManager.ContentConverterToXML;
 			import MetaDocumentManager.ImageContent;
@@ -54,6 +48,14 @@
 			import SpecificFormattersManager.NCL_generator;
 			
 			import TemplateManager.TextTemplate;
+			
+			import UI_components.IntervalsSlider.MultiThumbHSlider;
+			import UI_components.IntervalsSlider.SliderInfo;
+			import UI_components.IntervalsSlider.events.MouseEventWithInfo;
+			import UI_components.IntervalsSlider.events.ThumbEvent;
+			import UI_components.IntervalsSlider.events.TrackHighlightEvent;
+			import UI_components.IntervalsSlider.skins.track.HSliderWideTrackHighlightSkin;
+			import UI_components.IntervalsSlider.supportClasses.SliderTrackHighlight;
 			
 			import XML.Destaque;
 			import XML.ObjectConverter;
@@ -83,6 +85,7 @@
 			import mx.controls.listClasses.ListBase;
 			import mx.controls.listClasses.ListBaseSelectionData;
 			import mx.controls.sliderClasses.Slider;
+			import mx.controls.textClasses.TextRange;
 			import mx.core.DragSource;
 			import mx.core.FlexBitmap;
 			import mx.core.FlexLoader;
@@ -123,7 +126,7 @@
 			import spark.events.DropDownEvent;
 			import spark.events.IndexChangeEvent;
 			import spark.events.TrackBaseEvent;
-			
+						
 			[Event(name="audioEvent", type="EventWithInfo")]
 			private static const ADD_TASK:String = "Clique aqui para adicionar destaque";
 			
@@ -136,7 +139,7 @@
 			private var tempoFinal:Object = new Object();
 			private var editedRow:Object = new Object();	
 			private var labelUtil:LabelUtil1 = new LabelUtil1();
-			private var elementIndexCounter:ArrayCollection = new ArrayCollection();
+			private var elementIndexCounter:ArrayCollection = new ArrayCollection();   //array com indices dos componentes gráficos para desenho das barrinhas
 			private var trackHighlightArray:ArrayCollection = new ArrayCollection();
 			private var trackHighlightItens:ArrayCollection = new ArrayCollection();
 			private var elementDrawn:Boolean = false;	
@@ -163,7 +166,6 @@
 			private var audioLabelCounter:int = 0;
 			
 			//variaveis referentes ao arquivo xml com conteudos complementares
-			//private var xmlContentsFile_name:String;		
 			private var xmlContentsFile:File;
 			private var xmlContents:XML;
 			//////////////////////////////////////////////////////////////////
@@ -233,7 +235,7 @@
 				nativeWindow.maximize();
 				this.imageDragArea.scrollRect = new Rectangle(0, 0, this.imageDragArea.width, this.imageDragArea.height);
 				this.textDragArea.scrollRect = new Rectangle(0, 0, this.textDragArea.width, this.textDragArea.height);	
-				systemManager.addEventListener("audioUpdate", allContentInfo_update);	
+				systemManager.addEventListener("audioUpdate", allContentInfo_update);	//evento de atualização do array allContentInfo depois de gravados os áudios
 			}
 			
 			
@@ -354,9 +356,8 @@
 			private var fs:FileStream = new FileStream();
 			//handler chamado quando usuário clica no botão para iniciar o novo projeto
 			private function startProjectButton_handler(panel:spark.components.Panel, e:MouseEvent):void{
-				// copiar codigo de testeSilence(event) e tirar parametro e;
 				if(mainVideo_label.text != "" && subtitle_label.text != "" && filterType_comboBox.selectedIndex != -1){
-					this.testeSilence(e);
+					this.startProject(e);					
 					PopUpManager.removePopUp(panel);
 					newProject.visible = false;
 					openExistingProject.visible = false;					
@@ -470,7 +471,7 @@
 				}
 				else{
 					Alert.show("A mídia deve estar no formato H.264 com extensões .flv ou .mp4");
-					mainVideo_label.text = "";
+					mainVideo_label.text = "";					
 				}
 			}
 			
@@ -509,9 +510,14 @@
 			
 			//handler para o botao de geracao do arquivo NCL			
 			protected function NCL_button_clickHandler(event:MouseEvent):void
-			{
+			{				
 				var ncl:NCL_generator = new NCL_generator();
+				var nclTvToMobile:NCL_generator = new NCL_generator();
+				var nclMobile:NCL_generator = new NCL_generator();
+				
 				var ncl_result:String = ncl.process(html, xmlContents, xsltFile);
+				var nclToMobile_result:String = nclTvToMobile.process(html, xmlContents, XSL_tvToMobile);
+				var nclMobile_result:String = nclMobile.process(html, xmlContents, XSL_mobile);
 				
 				//progressBar para copiar video para pasta do projeto
 				panel2.title = "Progresso";
@@ -535,12 +541,54 @@
 				fs.readAhead = 1024*1024;// some reasonable number 1MB 
 				fs.openAsync(original, FileMode.READ);
 				//Alert.show(ncl.process(html, sampleXML, sampleXSL));
-				var NCL_fileName:String = "AuthoringTool_projects/" + projectName_textInput.text + "/NCL/main.ncl"; 			
+				
+				//cria arquivo NCL compulsorio
+				var NCL_fileName:String = "AuthoringTool_projects/" + projectName_textInput.text + "/NCL/compulsorio.ncl"; 			
 				var NCL_file:File = File.documentsDirectory.resolvePath(NCL_fileName); 
 				var fileStream:FileStream = new FileStream(); 
 				fileStream.open(NCL_file, FileMode.WRITE); 
 				fileStream.writeMultiByte(ncl_result, "utf-8");					
 				fileStream.close();
+				
+				//cria arquivo NCL de comunicação da tv com Mobile - conteudos complementares inseridos pelo usuario p/ mobile
+				var tvToMobileNCL_fileName:String = "AuthoringTool_projects/" + projectName_textInput.text + "/NCL/nclToMobile.ncl"; 			
+				var tvToMobileNCL_file:File = File.documentsDirectory.resolvePath(tvToMobileNCL_fileName); 
+				var tvToMobileFileStream:FileStream = new FileStream(); 
+				tvToMobileFileStream.open(tvToMobileNCL_file, FileMode.WRITE); 
+				tvToMobileFileStream.writeMultiByte(nclToMobile_result, "utf-8");					
+				tvToMobileFileStream.close();
+				
+				//cria arquivo lua associado ao NCL de comunicação da TV com mobile
+				var luaProgram:String = "---Função tratadora de eventos disparados pelo documento NCL --param evt Tabela que armazena as propriedades do evento disparado. " + 
+										"function settingHandler(event) if event.class == 'ncl' then if event.type == 'attribution' then if event.name == 'id' then id = event.value " +
+										"broker.post('topic://TOPICNAME', id) end end end end " +
+										"function onMessage(msg) print(\"recebeu msg\") end event.register(settingHandler) broker.init('http://my.broker.com/broker/amq') " +
+										"broker.register('topic://TOPICNAME', onMessage)";
+				var progLua_fileName:String = "AuthoringTool_projects/" + projectName_textInput.text + "/NCL/progLua.lua"; 			
+				var progLua_file:File = File.documentsDirectory.resolvePath(progLua_fileName); 
+				var luaFileStream:FileStream = new FileStream(); 
+				luaFileStream.open(progLua_file, FileMode.WRITE); 
+				luaFileStream.writeMultiByte(luaProgram, "utf-8");					
+				luaFileStream.close();	
+				
+				//cria arquivo NCL para mobile
+				var mobileNCL_fileName:String = "AuthoringTool_projects/" + projectName_textInput.text + "/NCL/mobile.ncl"; 			
+				var mobileNCL_file:File = File.documentsDirectory.resolvePath(mobileNCL_fileName); 
+				var mobileFileStream:FileStream = new FileStream(); 
+				mobileFileStream.open(mobileNCL_file, FileMode.WRITE); 
+				mobileFileStream.writeMultiByte(nclMobile_result, "utf-8");					
+				mobileFileStream.close();
+				
+				//cria arquivo Lua associado ao NCL para o mobile
+				var mobileProgram:String = "--handler que posta eventos no NCL " +
+											"function handle(event) event.post({ class = 'ncl', type = 'presentation', action='start', label=event.id}) end " +
+											"broker.init('http://my.broker.com/broker/amq') broker.register('topic://TOPICNAME', handle)";
+				var mobileLua_fileName:String = "AuthoringTool_projects/" + projectName_textInput.text + "/NCL/luaMobile.lua"; 			
+				var mobileLua_file:File = File.documentsDirectory.resolvePath(mobileLua_fileName); 
+				var mobileLuaFileStream:FileStream = new FileStream(); 
+				mobileLuaFileStream.open(mobileLua_file, FileMode.WRITE); 
+				mobileLuaFileStream.writeMultiByte(mobileProgram, "utf-8");					
+				mobileLuaFileStream.close();	
 			}
 			
 			/* ------------------------ cópia do video principal para pasta do projeto na criação do NCL ---------------------------------- */
@@ -585,7 +633,7 @@
 			/* --------------------------------------- --------------------------------------------- --------------------------------------- */
 						
 			//funcao chamada do método que verifica se o usuário pressionou botão de iniciar projeto novo
-			private function testeSilence(evt:MouseEvent):void{	
+			private function startProject(evt:MouseEvent):void{	
 				newProject.visible = false;
 				openExistingProject.visible = false;								
 				msg1.visible = false;
@@ -610,11 +658,7 @@
 				/* ****************************************** */
 				//adiciona listener para se saber o tempo total do video
 				player.addEventListener(Event.FRAME_CONSTRUCTED, player_frameConstructedHandler);
-				/* ****************************************** */
-				//}
-				/*else{
-				Alert.show("Por favor, selecione um video com extensão .flv","Erro", Alert.OK);
-				}*/
+				/* ****************************************** */				
 			}			
 
 			//função chamada ao iniciar-se o datagrid
@@ -658,10 +702,10 @@
 				trace(resultObj.form.tFinal);	
 			}			
 					
-			//cria o arquivo de com intervalos de interesse(.iof)
+			//cria o arquivo de com intervalos de interesse(.ioi)
 			private function createSilenceFile():void{
 				var subtitleFile:String = "AuthoringTool_projects/" + projectName_textInput.text + "/mainVideo_subtitle.srt"; 
-				silenceFile = "AuthoringTool_projects/" + projectName_textInput.text + "/silenceFile.iof"; 
+				silenceFile = "AuthoringTool_projects/" + projectName_textInput.text + "/silenceFile.ioi"; 
 				
 				var file:File = File.documentsDirectory.resolvePath(subtitleFile); 
 				var stream:FileStreamWithLineReader = new FileStreamWithLineReader();
@@ -1174,7 +1218,7 @@
 			}			
 			/* ----------------------------------- término das funções ligadas ao datagrid --------------------------------------- */
 			
-			//voltar da tela com as barras de silencio
+			//voltar da tela com as barras de silencio (interface com datagrid)
 			public function voltar(evt:MouseEvent):void{
 				volta.visible = false;
 				xmlContent_button.visible = false;
@@ -1182,6 +1226,7 @@
 				dropDownList.visible = false;
 				dropDownListOkButton.visible = false;
 				myDG.visible = true;
+				barsGroup.visible = false;
 				barsContainer.visible = false;
 				barsContainer_label.visible = false;
 				//silenceBarsContainer.visible = false;
@@ -1227,7 +1272,7 @@
 			private var selectedIndex:int = -1;
 			//editar destaque
 			public function editDetach():void{
-				//testePlayer.currentTimeDisplay1.visible = true;
+				lastOption = -2;	//volta opcao de filtro de intervalos de silencio para opcao default
 				if(selectedIndex == myDG.selectedIndex){
 					trace("selecionou o mesmo que editado antes");
 				}
@@ -1244,9 +1289,11 @@
 				destaque = tasks.getItemAt(myDG.selectedIndex);
 				
 				if(myDG.selectedIndex == selectedIndex){
+					trace("volta visibilidade dos elementos escondidos anteriormente");
 					var index:int;
 					for(var j:int = elementIndexCounter.length - 1; j >= 0; j--){
 						index = elementIndexCounter[j];
+						trace("index:" + index);
 						silenceBarsContainer.getElementAt(index).visible = true;													
 					}
 					//beginEdition_button.visible = true;
@@ -1255,7 +1302,8 @@
 					xmlContent_button.visible = true;
 					editionIcons.visible = true;
 					barsContainer_label.visible = true;
-					barsContainer.visible = true;	
+					barsContainer.visible = true;
+					barsGroup.visible = true;
 					volta.visible = false;
 					sliderActiveIndex = 0;	
 					count = 0;	
@@ -1276,19 +1324,28 @@
 					dropDownList.selectedIndex = -1;
 					dropDownList.prompt = "Filtrar intervalos de silêncio";
 					
-					if(elementDrawn && myDG.selectedIndex == selectedIndex){	
-						
+					/* -- salva informações antes de limpar para depois redesenhar trecho antigo --
+						//preciso ver como fazer isso depois
+					/* -- --*/
+					
+					//limpa todas as info da tela
+					if(elementDrawn){
+						trace("removeu elementos anteriores");
 						for(j = elementIndexCounter.length - 1; j >= 0; j--){						
 							index = elementIndexCounter[j];
+							trace("index:" + index);
 							silenceBarsContainer.removeElementAt(index);																		
-						}
+						}			
+												
 						//remover todos os itens do sliderTrackArray
-						//acertar activeSlider e zerar variaveis que precisar	
+						elementIndexCounter.removeAll();
 						elementDrawn = false;						
 						sliderTrackArray.removeAll();
 						sliderBoundariesArray.removeAll();
 						sliderActiveIndex = 0;	
-						count = 0;						
+						count = 0;	
+						activeSlider = new Array();
+						contentSliderArray.removeAll();
 					}					
 				}
 				
@@ -1300,7 +1357,7 @@
 				player.slider.maximum = timeInSeconds(destaque.tFinal);
 				player.playerDisplay.seek(timeInSeconds(destaque.tInicial));
 				player.slider.value = timeInSeconds(destaque.tInicial);
-				labelUtil.constrainTextToWidth(player.durationDisplay, formatTimeValue(timeInSeconds(destaque.tFinal)));
+				labelUtil.constrainTextToWidth(player.durationDisplay, formatTimeValue(timeInSeconds(destaque.tFinal))); //contrai label caso não caiba no espaço
 				player.slider.addEventListener(Event.ENTER_FRAME, hsliderFinished);
 				player.playerDisplay.stopButton.addEventListener(MouseEvent.CLICK, hsliderFinished);
 				
@@ -1345,7 +1402,7 @@
 				myDG.dataProvider.removeItemAt(myDG.selectedIndex);						
 			}		
 
-			//handler que trata hslider quando este chega ao seu final
+			//handler que trata hslider do video quando este chega ao seu final - retorna configurações iniciais
 			private function hsliderFinished(event:Event):void{
 				//trace("entrou a cada mudanca");
 				if(player.slider.value == player.slider.maximum){
@@ -1354,7 +1411,7 @@
 					player.playerDisplay.seek(player.slider.minimum);
 					player.slider.value = player.slider.minimum;
 					
-					trace("Chegou ao final pelo slider do video");
+					//trace("Chegou ao final pelo slider do video");
 					sliderTrackArray[sliderActiveIndex].thumb.visible = false;
 					sliderTrackArray[0].thumb.visible = true;
 					activeSlider[sliderActiveIndex] = false;
@@ -1373,7 +1430,419 @@
 					//listenerRemover na funcao volta				
 				}
 			}		
+						
+			//handler que encontra a duracao do video assim que é carregado
+			protected function player_frameConstructedHandler(event:Event):void
+			{				
+				if(player.playerDisplay.duration > 0){
+					player.slider.maximum = player.playerDisplay.duration;
+					labelUtil.constrainTextToWidth(player.durationDisplay, formatTimeValue(player.playerDisplay.duration));
+					labelUtil.constrainTextToWidth(player.currentDisplay, "0:00");
+					player.removeEventListener(Event.FRAME_CONSTRUCTED, player_frameConstructedHandler);
 					
+					this.createSilenceFile();						
+				}				
+			}	
+			
+			//handler utilizado quando o video inteiro termina para redefinir a fonte e o inicio
+			protected function player_completeHandler(event:TimeEvent):void
+			{
+				player.playerDisplay.stop();
+				player.playerDisplay.source = mainVideo_label.text;
+				player.playerDisplay.pause();				
+			}
+			
+			//handler chamado para definir opção de filtro de interfalos de silêncio por parte do usuário
+			protected function dropdownlist1_changeHandler(event:IndexChangeEvent):void
+			{
+				switch(event.newIndex)
+				{
+					case 0:
+					{
+						dropDownListSelection = 2;						
+						break;
+					}
+					case 1:
+					{
+						dropDownListSelection = 4;						
+						break;
+					}
+					case 2:	
+					{
+						dropDownListSelection = 6;						
+						break;
+					}
+					case 3:
+					{
+						dropDownListSelection = 7;						
+						break;
+					}
+					default:
+					{
+						break;
+					}
+				}
+				
+			}
+			
+			/* ----variaveis globais para remover eventListener em outras funções ---- */
+			private var event;	
+			private var dragEvent;
+			private var changeEvent;
+			private var pressEvent;
+			private var releaseEvent;
+			/* ----------------------------------------------------------------------- */
+			private var sliderBoundariesArray:ArrayCollection = new ArrayCollection();	
+			private var lastOption:int = -2;	
+			private var silenceSlidersArray:ArrayCollection = new ArrayCollection();
+			/* ********************************************************************************************************* */
+			private var contentSliderArray:ArrayCollection = new ArrayCollection(); //array com todos os arrays de sliders
+			/* ********************************************************************************************************* */
+			
+			//funcao chamada quando o usuario filtra o intervalo de silencio e pressiona o botao OK
+			public function okButtonHandler(event2:MouseEvent):void{
+				if(elementDrawn && lastOption != dropDownListSelection){					
+					//var progressBarIncrementer:int = 0;
+					//progressBar.visible = true;	
+					trace("removeu todas barrinhas");
+					//silenceBarsContainer.removeAllElements();
+					var index:int;
+					for(var j:int = elementIndexCounter.length - 1; j >= 0; j--){						
+						index = elementIndexCounter[j];
+						silenceBarsContainer.removeElementAt(index);																		
+					}					
+					
+					elementIndexCounter.removeAll();
+					sliderTrackArray.removeAll();
+					sliderActiveIndex = 0;	
+					sliderBoundariesArray.removeAll();
+					allSilenceSliders.removeAll();
+					count = 0;	
+					/*for(var k:int = 0; k < activeSlider.length - 1; k++){
+						activeSlider[sliderActiveIndex] = false;
+					}
+					activeSlider[0] = true;*/
+					for(var k:int = 0; k < activeSlider.length; k++){
+						trace("elementos out " + activeSlider.pop());
+						activeSlider.pop();
+					}					
+					
+					player.playerDisplay.seek(detachBeginning);
+					
+					//remocao dos eventListeners
+					player.slider.removeEventListener(Event.EXIT_FRAME, event);		
+					sliderTrackArray.removeEventListener(TrackBaseEvent.THUMB_PRESS, pressEvent);				
+					sliderTrackArray.removeEventListener(TrackBaseEvent.THUMB_DRAG, dragEvent);
+					sliderTrackArray.removeEventListener(TrackBaseEvent.THUMB_RELEASE, releaseEvent);
+					sliderTrackArray.removeEventListener(Event.CHANGE, changeEvent);
+				}			
+				
+				if(dropDownListSelection != -1 && dropDownListSelection != lastOption){
+					for(j = elementIndexCounter.length - 1; j >= 0; j--){						
+						index = elementIndexCounter[j];
+						silenceBarsContainer.removeElementAt(index);
+						trace("item removido: " + index);
+					}					
+					allSilenceSliders.removeAll();
+					elementIndexCounter.removeAll();
+					sliderTrackArray.removeAll();
+					sliderActiveIndex = 0;	
+					sliderBoundariesArray.removeAll();
+					silenceSlidersArray.removeAll();
+					allTimesSelected.removeAll();
+					contentSliderArray.removeAll();
+					count = 0;	
+					/*for(var k:int = 0; k < activeSlider.length - 1; k++){
+					activeSlider[sliderActiveIndex] = false;
+					}
+					activeSlider[0] = true;*/
+					for(k = 0; k < activeSlider.length; k++){
+						trace("elementos out " + activeSlider.pop());
+						activeSlider.pop();
+					}
+					
+					trace("outra opcao");
+					var initialTime:Number = 0;
+					var destaque:Object = tasks.getItemAt(myDG.selectedIndex);
+					var slidersAmount:int;
+					var incrementer:int = 0;
+					//var posY:int = 148;
+					var posY:int = 20;
+					var intervalMinimum:Number, intervalMaximum:Number;
+					var firstMinimum:Boolean = true;
+					var fillWhite:Boolean = true;
+					var slidersTotal:int;
+					
+					//progressBar.left = barsContainer.left + 280;
+					//progressBar.top = barsContainer.top + 130;
+					barsGroup.visible = true;
+					progressBar.visible = true;					
+					//silenceBarsContainer.addElement(progressBar);
+					
+					if((timeInSeconds(destaque.tInicial))%60 != 0){
+						initialTime = timeInSeconds(destaque.tInicial) - (timeInSeconds(destaque.tInicial)%60);
+					}
+					else{
+						initialTime = timeInSeconds(destaque.tInicial);
+					}
+					
+					var detachSize:Number = timeInSeconds(destaque.tFinal) - initialTime;	
+					//trace("timeInSeconds(destaque.tFinal): " + timeInSeconds(destaque.tFinal));
+					//trace("initialTime: " + initialTime);
+					//trace("detachSize " + detachSize + " detachSize/60: " + detachSize/60);
+					
+					slidersAmount = detachSize/60;
+					if((detachSize%60) != 0){
+						slidersAmount++;
+					}
+					slidersTotal = slidersAmount;
+					//trace("total de barras: " + slidersTotal);
+					
+					addEventListener("trackHighlightComplete", trackHighlightComplete);
+					setProgress(0,100);					
+					
+					UIUtilities.pausingFor(0, slidersTotal-1, function(i:int) : void {
+						var silenceSlider:MultiThumbHSlider = new MultiThumbHSlider();
+						var timeValues:ArrayCollection = new ArrayCollection();
+						var accentColor:Array = new Array();
+						
+						silenceSlider.visible = true;
+						silenceSlider.left = 17;
+						silenceSlider.right = 17;
+						silenceSlider.y = posY;						
+						silenceSlider.width = 676;
+						silenceSlider.height = 16;
+						silenceSlider.showTrackHighlight = true;
+						silenceSlider.accentColors = ["0xFFFFFF"];
+						silenceSlider.minimum = initialTime + incrementer;
+						silenceSlider.maximum = 60 + initialTime + incrementer;
+						intervalMinimum = silenceSlider.minimum;
+						intervalMaximum = silenceSlider.maximum;
+						
+						var boundaries:Object = new Object();
+						boundaries.minimum = intervalMinimum;
+						boundaries.maximum = intervalMaximum;
+						sliderBoundariesArray.addItem(boundaries);
+						
+						if(firstMinimum){
+							intervalMinimum = timeInSeconds(destaque.tInicial);
+							silenceSlider.setIntervalBeginning(intervalMinimum);
+							firstMinimum = false;								
+						}
+						
+						timeValues = selectIntervals(intervalMinimum, intervalMaximum);	
+						allTimesSelected.addAll(timeValues);
+						
+						for(var j:int = 0; j < timeValues.length; j++){							
+							if(timeValues.getItemAt(j).label != ""){
+								accentColor.push("0xFF0000");  //vermelho								
+							}
+							else{								
+								if(!firstMinimum && fillWhite){
+									fillWhite = false;
+									accentColor.push("0xFFFFFF");	//branco								
+								}
+								else
+									accentColor.push("0xB7BCAF"); //cinza claro									
+							}							
+						}						
+						silenceSlider.dataProvider = timeValues;
+						silenceSlider.accentColors = accentColor;
+						silenceSlidersArray.addItem(silenceSlider);
+						//////////////
+						var contentSlider:ContentSlider = new ContentSlider();
+						contentSlider.mainContentSlider = silenceSlider;
+						contentSliderArray.addItem(contentSlider);						
+						/////////////						
+						
+						allSilenceSliders.addItem(timeValues);
+						allSilenceSliders.addItem(silenceSlider);
+						
+						//addElement(silenceSlider);
+						silenceBarsContainer.addElement(silenceSlider);
+						
+						var silenceSliderTracker:HSlider = new HSlider();
+						//silenceSliderTracker.x = 630;
+						silenceSliderTracker.left = 13;
+						silenceSliderTracker.right = 13;
+						silenceSliderTracker.y = posY;
+						silenceSliderTracker.width = 680;
+						silenceSliderTracker.height = 16;
+						silenceSliderTracker.minimum = silenceSlider.minimum;
+						silenceSliderTracker.maximum = silenceSlider.maximum;
+						silenceSliderTracker.value = intervalMinimum;
+						
+						//addElement(silenceSliderTracker);
+						silenceBarsContainer.addElement(silenceSliderTracker);
+						silenceSliderTracker.track.alpha = 0;	
+						//silenceSliderTracker.setStyle("liveDragging", true);
+						silenceSlider.sliderTracker = silenceSliderTracker;
+						sliderTrackArray.addItem(silenceSliderTracker);
+						
+						/* ******* Events of silenceSliders ******* */
+						pressEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbPressHandler(sliderTrackArray, 0);}
+						silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_PRESS, pressEvent);
+						
+						dragEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbDragHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+							timeInSeconds(destaque.tFinal));}							
+						silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_DRAG, dragEvent);
+						
+						releaseEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbReleaseHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+							timeInSeconds(destaque.tFinal));}
+						silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_RELEASE, releaseEvent);
+						
+						changeEvent = function(e:Event):void{silenceSlider_changeHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+							timeInSeconds(destaque.tFinal), e);}
+						silenceSliderTracker.addEventListener(Event.CHANGE, changeEvent);
+						/* ******* ********************** ******* */
+						
+						silenceSliderTracker.thumb.visible = false;	
+						silenceSliderTracker.setStyle("liveDragging", true);
+						
+						//elementIndexCounter.push(getElementIndex(silenceSlider));
+						elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSlider));
+						elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSliderTracker));
+						
+						silenceSlider.validateProperties();							
+						silenceSlider.minimum = initialTime + incrementer;
+						silenceSlider.maximum = 60 + initialTime + incrementer;
+						
+						incrementer+=60;
+						posY+=40;	
+						barsContainer.visible = true;	
+						barsGroup.visible = true;
+						//trace("valores de incrementer e posY: " + incrementer + " " + posY);
+						//trace(i);
+						
+						//desenha a ultima barrinha
+						if(i == (slidersTotal-2)){
+							//trace("Desenha ultima parte");
+							silenceSlider = new MultiThumbHSlider();
+							timeValues = new ArrayCollection();
+							accentColor = new Array();
+							var intervalMinimum:Number, intervalMaximum:Number;
+							
+							//progressBar.removeEventListener(Event.COMPLETE, progressBarEndEvent);	
+							progressBar.visible = false;
+							
+							//trace("FINAL: incrementer e posY: " + incrementer + " " + posY);	
+							silenceSlider.visible = true;
+							silenceSlider.left = 17;
+							silenceSlider.right = 17;
+							silenceSlider.y = posY;
+							silenceSlider.width = 676;
+							silenceSlider.height = 16;
+							silenceSlider.showTrackHighlight = true;
+							silenceSlider.accentColors = ["0xFFFFFF"];
+							silenceSlider.minimum = initialTime + incrementer;
+							silenceSlider.maximum = 60 + initialTime + incrementer;	
+							intervalMinimum = silenceSlider.minimum;
+							intervalMaximum = timeInSeconds(destaque.tFinal);
+							
+							boundaries = new Object();					
+							boundaries.minimum = intervalMinimum;
+							boundaries.maximum = intervalMaximum;
+							sliderBoundariesArray.addItem(boundaries);
+							
+							silenceSlider.setIntervalEnd(intervalMaximum);					
+							timeValues = selectIntervals(intervalMinimum, intervalMaximum);	
+							allTimesSelected.addAll(timeValues);
+							
+							for(var i:int = 0; i < timeValues.length; i++){
+								if(timeValues.getItemAt(i).label != ""){
+									accentColor.push("0xFF0000");  //vermelho								
+								}
+								else{
+									accentColor.push("0xB7BCAF"); //cinza claro					
+								}							
+							}							
+							silenceSlider.dataProvider = timeValues;
+							silenceSlider.accentColors = accentColor;
+							silenceSlidersArray.addItem(silenceSlider);
+							//////////////
+							contentSlider = new ContentSlider();
+							contentSlider.mainContentSlider = silenceSlider;
+							contentSliderArray.addItem(contentSlider);	
+							/////////////	
+							
+							//addElement(silenceSlider);
+							silenceBarsContainer.addElement(silenceSlider);
+							
+							silenceSliderTracker = new HSlider();
+							silenceSliderTracker.left = 13;
+							silenceSliderTracker.right = 13;
+							silenceSliderTracker.y = posY;
+							silenceSliderTracker.width = 680;
+							silenceSliderTracker.height = 16;
+							silenceSliderTracker.minimum = silenceSlider.minimum;
+							silenceSliderTracker.maximum = silenceSlider.maximum;
+							
+							//addElement(silenceSliderTracker);
+							silenceBarsContainer.addElement(silenceSliderTracker);							
+							silenceSliderTracker.track.alpha = 0;	
+							
+							silenceSlider.sliderTracker = silenceSliderTracker;
+							sliderTrackArray.addItem(silenceSliderTracker);
+							silenceSliderTracker.thumb.visible = false;
+							silenceSliderTracker.setStyle("liveDragging", true);
+							
+							// ******* Events of silenceSliders ******* 
+							event = function(e:Event):void{verifySliderOrientation(sliderTrackArray, timeInSeconds(destaque.tFinal));};
+							player.slider.addEventListener(Event.EXIT_FRAME, event);
+							
+							pressEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbPressHandler(sliderTrackArray, 0);}
+							silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_PRESS, pressEvent);
+							
+							dragEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbDragHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+								timeInSeconds(destaque.tFinal));}
+							silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_DRAG, dragEvent);
+							
+							releaseEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbReleaseHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+								timeInSeconds(destaque.tFinal));}
+							silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_RELEASE, releaseEvent);
+							
+							changeEvent = function(e:Event):void{silenceSlider_changeHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
+								timeInSeconds(destaque.tFinal), e);}
+							silenceSliderTracker.addEventListener(Event.CHANGE, changeEvent);
+							/* ******* ********************** *******/ 
+							
+							//elementIndexCounter.push(getElementIndex(silenceSlider));
+							elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSlider));
+							elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSliderTracker));
+							
+							silenceSlider.validateProperties();	
+							silenceSlider.minimum = initialTime + incrementer;
+							silenceSlider.maximum = 60 + initialTime + incrementer;
+							
+							silenceSlidersDrawn = true;
+							activeSlider = new Array(slidersTotal);
+							//editionIcons.visible = true;
+							barsContainer.visible = true;
+							barsGroup.visible = true;
+							barsContainer_label.visible = true;
+							elementDrawn = true;					
+							
+							lastOption = dropDownListSelection;						
+						}						
+					},setProgress ,this); //end of the loop		
+				}
+				beginEdition_button.visible = true;
+			}		
+			
+			//handler chamado da funcao okButtonHandler para setar o progresso da barrinha mostrada ao usuário
+			private function setProgress(processed : int, amountThatNeedsToBeProcessed : int) : void {
+				progressBar.setProgress(processed, amountThatNeedsToBeProcessed);
+				progressBar.addEventListener(Event.COMPLETE, finishLoadingSliders);
+			}
+			
+			//função chamada quando a barra de progresso das barras de silencio chega aos 100%
+			private function finishLoadingSliders(event:Event):void{
+				//trace("setou visibilidade");
+				barsContainer_label.visible = true;
+				beginEdition_button.visible = true;
+			}
+			
+			
 			/* ---- início das funções que tratam operações realizadas no slider do video principal quanto nos sliders das barras com intervalos de interesse ----- */
 			private function silenceSlider_thumbPressHandler(sliderArray:ArrayCollection, index:int):void {
 				player.slider.removeEventListener(Event.EXIT_FRAME, event);
@@ -1566,378 +2035,8 @@
 					}
 				}
 			}			
-			/* ---- fim das funções que tratam operações realizadas no slider do video principal quanto nos sliders das barras com intervalos de interesse ----- */		
+			/* ---- fim das funções que tratam operações realizadas no slider do video principal quanto nos sliders das barras com intervalos de interesse ----- */
 			
-			//handler que encontra a duracao do video assim que é carregado
-			protected function player_frameConstructedHandler(event:Event):void
-			{				
-				if(player.playerDisplay.duration > 0){
-					player.slider.maximum = player.playerDisplay.duration;
-					labelUtil.constrainTextToWidth(player.durationDisplay, formatTimeValue(player.playerDisplay.duration));
-					labelUtil.constrainTextToWidth(player.currentDisplay, "0:00");
-					player.removeEventListener(Event.FRAME_CONSTRUCTED, player_frameConstructedHandler);
-					
-					this.createSilenceFile();						
-				}				
-			}	
-			
-			//handler utilizado quando o video inteiro termina para redefinir a fonte e o inicio
-			protected function player_completeHandler(event:TimeEvent):void
-			{
-				player.playerDisplay.stop();
-				player.playerDisplay.source = mainVideo_label.text;
-				player.playerDisplay.pause();				
-			}
-			
-			//handler chamado para definir opção de filtro de interfalos de silêncio por parte do usuário
-			protected function dropdownlist1_changeHandler(event:IndexChangeEvent):void
-			{
-				switch(event.newIndex)
-				{
-					case 0:
-					{
-						dropDownListSelection = 2;						
-						break;
-					}
-					case 1:
-					{
-						dropDownListSelection = 4;						
-						break;
-					}
-					case 2:	
-					{
-						dropDownListSelection = 6;						
-						break;
-					}
-					case 3:
-					{
-						dropDownListSelection = 7;						
-						break;
-					}
-					default:
-					{
-						break;
-					}
-				}
-				
-			}
-			
-			/* ----variaveis globais para remover eventListener em outras funções ---- */
-			private var event;	
-			private var dragEvent;
-			private var changeEvent;
-			private var pressEvent;
-			private var releaseEvent;
-			/* ----------------------------------------------------------------------- */
-			private var sliderBoundariesArray:ArrayCollection = new ArrayCollection();	
-			private var lastOption:int = -2;	
-			private var silenceSlidersArray:ArrayCollection = new ArrayCollection();
-			/* ********************************************************************************************************* */
-			private var contentSliderArray:ArrayCollection = new ArrayCollection(); //array com todos os arrays de sliders
-			/* ********************************************************************************************************* */
-			
-			//funcao chamada quando o usuario filtra o intervalo de silencio e pressiona o botao OK
-			public function okButtonHandler(event2:MouseEvent):void{
-				if(elementDrawn && lastOption != dropDownListSelection){					
-					//var progressBarIncrementer:int = 0;
-					//progressBar.visible = true;	
-					var index:int;
-					for(var j:int = elementIndexCounter.length - 1; j >= 0; j--){						
-						index = elementIndexCounter[j];
-						silenceBarsContainer.removeElementAt(index);																		
-					}					
-					
-					elementIndexCounter.removeAll();
-					sliderTrackArray.removeAll();
-					sliderActiveIndex = 0;	
-					sliderBoundariesArray.removeAll();
-					count = 0;	
-					for(var k:int = 0; k < activeSlider.length - 1; k++){
-						activeSlider[sliderActiveIndex] = false;
-					}
-					activeSlider[0] = true;
-					player.playerDisplay.seek(detachBeginning);
-					
-					//remocao dos eventListeners
-					player.slider.removeEventListener(Event.EXIT_FRAME, event);		
-					sliderTrackArray.removeEventListener(TrackBaseEvent.THUMB_PRESS, pressEvent);				
-					sliderTrackArray.removeEventListener(TrackBaseEvent.THUMB_DRAG, dragEvent);
-					sliderTrackArray.removeEventListener(TrackBaseEvent.THUMB_RELEASE, releaseEvent);
-					sliderTrackArray.removeEventListener(Event.CHANGE, changeEvent);
-				}			
-				
-				if(dropDownListSelection != -1 && dropDownListSelection != lastOption){
-					var initialTime:Number = 0;
-					var destaque:Object = tasks.getItemAt(myDG.selectedIndex);
-					var slidersAmount:int;
-					var incrementer:int = 0;
-					//var posY:int = 148;
-					var posY:int = 20;
-					var intervalMinimum:Number, intervalMaximum:Number;
-					var firstMinimum:Boolean = true;
-					var fillWhite:Boolean = true;
-					var slidersTotal:int;
-					
-					progressBar.x = barsContainer.x + 280;
-					progressBar.y = barsContainer.y + 130;
-					progressBar.visible = true;
-					//silenceBarsContainer.addElement(progressBar);
-					
-					if((timeInSeconds(destaque.tInicial))%60 != 0){
-						initialTime = timeInSeconds(destaque.tInicial) - (timeInSeconds(destaque.tInicial)%60);
-					}
-					else{
-						initialTime = timeInSeconds(destaque.tInicial);
-					}
-					
-					var detachSize:Number = timeInSeconds(destaque.tFinal) - initialTime;	
-					//trace("timeInSeconds(destaque.tFinal): " + timeInSeconds(destaque.tFinal));
-					//trace("initialTime: " + initialTime);
-					//trace("detachSize " + detachSize + " detachSize/60: " + detachSize/60);
-					
-					slidersAmount = detachSize/60;
-					if((detachSize%60) != 0){
-						slidersAmount++;
-					}
-					slidersTotal = slidersAmount;
-					//trace("total de barras: " + slidersTotal);
-					
-					addEventListener("trackHighlightComplete", trackHighlightComplete);
-					setProgress(0,100);					
-					
-					UIUtilities.pausingFor(0, slidersTotal-1, function(i:int) : void {
-						var silenceSlider:MultiThumbHSlider = new MultiThumbHSlider();
-						var timeValues:ArrayCollection = new ArrayCollection();
-						var accentColor:Array = new Array();
-						
-						silenceSlider.visible = true;
-						silenceSlider.x = 17;
-						silenceSlider.y = posY;
-						silenceSlider.width = 676;
-						silenceSlider.height = 16;
-						silenceSlider.showTrackHighlight = true;
-						silenceSlider.accentColors = ["0xFFFFFF"];
-						silenceSlider.minimum = initialTime + incrementer;
-						silenceSlider.maximum = 60 + initialTime + incrementer;
-						intervalMinimum = silenceSlider.minimum;
-						intervalMaximum = silenceSlider.maximum;
-						
-						var boundaries:Object = new Object();
-						boundaries.minimum = intervalMinimum;
-						boundaries.maximum = intervalMaximum;
-						sliderBoundariesArray.addItem(boundaries);
-						
-						if(firstMinimum){
-							intervalMinimum = timeInSeconds(destaque.tInicial);
-							silenceSlider.setIntervalBeginning(intervalMinimum);
-							firstMinimum = false;								
-						}
-						
-						timeValues = selectIntervals(intervalMinimum, intervalMaximum);	
-						allTimesSelected.addAll(timeValues);
-						
-						for(var j:int = 0; j < timeValues.length; j++){							
-							if(timeValues.getItemAt(j).label != ""){
-								accentColor.push("0xFF0000");  //vermelho								
-							}
-							else{								
-								if(!firstMinimum && fillWhite){
-									fillWhite = false;
-									accentColor.push("0xFFFFFF");	//branco								
-								}
-								else
-									accentColor.push("0xB7BCAF"); //cinza claro									
-							}							
-						}						
-						silenceSlider.dataProvider = timeValues;
-						silenceSlider.accentColors = accentColor;
-						silenceSlidersArray.addItem(silenceSlider);
-						//////////////
-						var contentSlider:ContentSlider = new ContentSlider();
-						contentSlider.mainContentSlider = silenceSlider;
-						contentSliderArray.addItem(contentSlider);						
-						/////////////						
-						
-						allSilenceSliders.addItem(timeValues);
-						allSilenceSliders.addItem(silenceSlider);
-						
-						//addElement(silenceSlider);
-						silenceBarsContainer.addElement(silenceSlider);
-						
-						var silenceSliderTracker:HSlider = new HSlider();
-						//silenceSliderTracker.x = 630;
-						silenceSliderTracker.x = 13;
-						silenceSliderTracker.y = posY;
-						silenceSliderTracker.width = 680;
-						silenceSliderTracker.height = 16;
-						silenceSliderTracker.minimum = silenceSlider.minimum;
-						silenceSliderTracker.maximum = silenceSlider.maximum;
-						silenceSliderTracker.value = intervalMinimum;
-						
-						//addElement(silenceSliderTracker);
-						silenceBarsContainer.addElement(silenceSliderTracker);
-						silenceSliderTracker.track.alpha = 0;	
-						//silenceSliderTracker.setStyle("liveDragging", true);
-						silenceSlider.sliderTracker = silenceSliderTracker;
-						sliderTrackArray.addItem(silenceSliderTracker);
-						
-						/* ******* Events of silenceSliders ******* */
-						pressEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbPressHandler(sliderTrackArray, 0);}
-						silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_PRESS, pressEvent);
-						
-						dragEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbDragHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
-							timeInSeconds(destaque.tFinal));}							
-						silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_DRAG, dragEvent);
-						
-						releaseEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbReleaseHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
-							timeInSeconds(destaque.tFinal));}
-						silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_RELEASE, releaseEvent);
-						
-						changeEvent = function(e:Event):void{silenceSlider_changeHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
-							timeInSeconds(destaque.tFinal), e);}
-						silenceSliderTracker.addEventListener(Event.CHANGE, changeEvent);
-						/* ******* ********************** ******* */
-						
-						silenceSliderTracker.thumb.visible = false;	
-						silenceSliderTracker.setStyle("liveDragging", true);
-						
-						//elementIndexCounter.push(getElementIndex(silenceSlider));
-						elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSlider));
-						elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSliderTracker));
-						
-						silenceSlider.validateProperties();							
-						silenceSlider.minimum = initialTime + incrementer;
-						silenceSlider.maximum = 60 + initialTime + incrementer;
-						
-						incrementer+=60;
-						posY+=40;	
-						barsContainer.visible = true;						
-						//trace("valores de incrementer e posY: " + incrementer + " " + posY);
-						//trace(i);
-						
-						//desenha a ultima barrinha
-						if(i == (slidersTotal-2)){
-							//trace("Desenha ultima parte");
-							silenceSlider = new MultiThumbHSlider();
-							timeValues = new ArrayCollection();
-							accentColor = new Array();
-							var intervalMinimum:Number, intervalMaximum:Number;
-							
-							//progressBar.removeEventListener(Event.COMPLETE, progressBarEndEvent);	
-							progressBar.visible = false;
-							
-							//trace("FINAL: incrementer e posY: " + incrementer + " " + posY);	
-							silenceSlider.visible = true;
-							silenceSlider.x = 17;
-							silenceSlider.y = posY;
-							silenceSlider.width = 676;
-							silenceSlider.height = 16;
-							silenceSlider.showTrackHighlight = true;
-							silenceSlider.accentColors = ["0xFFFFFF"];
-							silenceSlider.minimum = initialTime + incrementer;
-							silenceSlider.maximum = 60 + initialTime + incrementer;	
-							intervalMinimum = silenceSlider.minimum;
-							intervalMaximum = timeInSeconds(destaque.tFinal);
-							
-							boundaries = new Object();					
-							boundaries.minimum = intervalMinimum;
-							boundaries.maximum = intervalMaximum;
-							sliderBoundariesArray.addItem(boundaries);
-							
-							silenceSlider.setIntervalEnd(intervalMaximum);					
-							timeValues = selectIntervals(intervalMinimum, intervalMaximum);	
-							allTimesSelected.addAll(timeValues);
-							
-							for(var i:int = 0; i < timeValues.length; i++){
-								if(timeValues.getItemAt(i).label != ""){
-									accentColor.push("0xFF0000");  //vermelho								
-								}
-								else{
-									accentColor.push("0xB7BCAF"); //cinza claro					
-								}							
-							}							
-							silenceSlider.dataProvider = timeValues;
-							silenceSlider.accentColors = accentColor;
-							silenceSlidersArray.addItem(silenceSlider);
-							//////////////
-							contentSlider = new ContentSlider();
-							contentSlider.mainContentSlider = silenceSlider;
-							contentSliderArray.addItem(contentSlider);	
-							/////////////	
-							
-							//addElement(silenceSlider);
-							silenceBarsContainer.addElement(silenceSlider);
-							
-							silenceSliderTracker = new HSlider();
-							silenceSliderTracker.x = 13;
-							silenceSliderTracker.y = posY;
-							silenceSliderTracker.width = 680;
-							silenceSliderTracker.height = 16;
-							silenceSliderTracker.minimum = silenceSlider.minimum;
-							silenceSliderTracker.maximum = silenceSlider.maximum;
-							
-							//addElement(silenceSliderTracker);
-							silenceBarsContainer.addElement(silenceSliderTracker);							
-							silenceSliderTracker.track.alpha = 0;	
-							
-							silenceSlider.sliderTracker = silenceSliderTracker;
-							sliderTrackArray.addItem(silenceSliderTracker);
-							silenceSliderTracker.thumb.visible = false;
-							silenceSliderTracker.setStyle("liveDragging", true);
-							
-							// ******* Events of silenceSliders ******* 
-							event = function(e:Event):void{verifySliderOrientation(sliderTrackArray, timeInSeconds(destaque.tFinal));};
-							player.slider.addEventListener(Event.EXIT_FRAME, event);
-							
-							pressEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbPressHandler(sliderTrackArray, 0);}
-							silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_PRESS, pressEvent);
-							
-							dragEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbDragHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
-								timeInSeconds(destaque.tFinal));}
-							silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_DRAG, dragEvent);
-							
-							releaseEvent = function(e:TrackBaseEvent):void{silenceSlider_thumbReleaseHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
-								timeInSeconds(destaque.tFinal));}
-							silenceSliderTracker.addEventListener(TrackBaseEvent.THUMB_RELEASE, releaseEvent);
-							
-							changeEvent = function(e:Event):void{silenceSlider_changeHandler(sliderTrackArray, timeInSeconds(destaque.tInicial), 
-								timeInSeconds(destaque.tFinal), e);}
-							silenceSliderTracker.addEventListener(Event.CHANGE, changeEvent);
-							/* ******* ********************** *******/ 
-							
-							//elementIndexCounter.push(getElementIndex(silenceSlider));
-							elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSlider));
-							elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSliderTracker));
-							
-							silenceSlider.validateProperties();	
-							silenceSlider.minimum = initialTime + incrementer;
-							silenceSlider.maximum = 60 + initialTime + incrementer;
-							
-							silenceSlidersDrawn = true;
-							activeSlider = new Array(slidersTotal);
-							//editionIcons.visible = true;
-							barsContainer.visible = true;
-							barsContainer_label.visible = true;
-							elementDrawn = true;					
-							
-							lastOption = dropDownListSelection;						
-						}						
-					},setProgress ,this); //end of the loop						
-				}
-			}		
-			
-			//handler chamado da funcao okButtonHandler para setar o progresso da barrinha mostrada ao usuário
-			private function setProgress(processed : int, amountThatNeedsToBeProcessed : int) : void {
-				progressBar.setProgress(processed, amountThatNeedsToBeProcessed);
-				progressBar.addEventListener(Event.COMPLETE, finishLoadingSliders);
-			}
-			
-			//função chamada quando a barra de progresso das barras de silencio chega aos 100%
-			private function finishLoadingSliders(event:Event):void{
-				//trace("setou visibilidade");
-				barsContainer_label.visible = true;
-				beginEdition_button.visible = true;
-			}
 			
 			private var firstTime:Boolean = true;	
 			private var forward:Boolean = true;
@@ -2199,13 +2298,18 @@
 			private var audioContent:AudioContent = new AudioContent();
 			private var audioIndex:int;
 			private var contentExists:Boolean = false;
+			private var alertCount:int = 0;
 			private function voiceEdition(sliderTrackArray:ArrayCollection):void{
 				//tirar visibilidade dos trackers
 				for(var i:int = 0; i < sliderTrackArray.length; i++){
 					sliderTrackArray[i].visible = false;					
-				}				
-				Alert.show("Selecione um dos intervalos de silêncio destacados","Aviso", Alert.OK);
-				addEventListener("labelClicked", intervalSelected);											
+				}
+				if(alertCount < 1){
+					Alert.show("Selecione um dos intervalos de silêncio destacados","Aviso", Alert.OK);
+					addEventListener("labelClicked", intervalSelected);
+					alertCount++;
+					//trace("alertCount: " + alertCount);
+				}
 			}
 			
 			private var voiceText:spark.components.TextInput = new spark.components.TextInput();
@@ -2305,6 +2409,7 @@
 			}
 			
 			private function closePopUp_cancel(panel:spark.components.Panel):void{
+				alertCount = 0; //zera contador de alerta de mensagens - necessário para não mostrar mais que 1 alerta na tela
 				PopUpManager.removePopUp(panel);
 				//retorna a visibilidade dos trackers
 				for(var i:int = 0; i < sliderTrackArray.length; i++){
@@ -2315,6 +2420,7 @@
 			private var selectedLabelsArray:ArrayCollection = new ArrayCollection();
 			private function closePopUp_ok(panel:spark.components.Panel, labelSelected:String, timesArray:ArrayCollection):void{
 				PopUpManager.removePopUp(panel);
+				alertCount = 0; //zera contador de alerta de mensagens - necessário para não mostrar mais que 1 alerta na tela
 				trace("closePopUp_ok");
 				var cleanColorArray:Array = new Array();				
 				var firstMinimum:Boolean = true;
@@ -2443,6 +2549,7 @@
 				finishImageEdition.visible = false;
 				showImageOnTv.visible = false;
 				showImageOnMobile.visible = false;
+				myimg.source = "";
 				myimg.visible = false;
 			}
 			
@@ -2454,10 +2561,11 @@
 			}
 			
 			private function imageLoaded(event:Event):void{
+				trace("imageLoaded");
 				originalWidth = myimg.contentWidth;
 				originalHeight = myimg.contentHeight;
-				//trace("Height ", myimg.contentHeight);
-				//trace("Width ", myimg.contentWidth);
+				trace("Height ", myimg.contentHeight);
+				trace("Width ", myimg.contentWidth);
 				myimg.width = myimg.contentWidth;
 				myimg.height = myimg.contentHeight;
 				imageContent.original_imageWidth = myimg.contentWidth;
@@ -2466,61 +2574,19 @@
 			
 			private function image_selection(evt:Event):void{
 				//var labelUtil:LabelUtil1 = new LabelUtil1();
-				//labelUtil.constrainTextToWidth(imagePath, File(evt.currentTarget).nativePath);
+				//labelUtil.constrainTextToWidth(imagePath, File(evt.currentTarget).nativePath);							
 				imagePath.text = File(evt.currentTarget).nativePath;
-				myimg.source = imagePath.text;
+				myimg.source = imagePath.text;				
 				myimg.percentHeight = 100;
 				myimg.percentWidth = 100;
-				myimg.addEventListener(Event.COMPLETE, imageLoaded);
-				var originalFile:File = new File(imagePath.text);
-				
-				//descobrir extensão da imagem, copiar para pasta do projeto e setar imageContent.imageData
-				var imageType1:int = imagePath.text.indexOf(".bmp",0);
-				var imageType2:int = imagePath.text.indexOf(".png",0);
-				var imageType3:int = imagePath.text.indexOf(".gif",0);
-				var imageType4:int = imagePath.text.indexOf(".jpg",0);
-				var imageType5:int = imagePath.text.indexOf(".jpeg",0);
-				var imageDefinition:String = "AuthoringTool_projects/" + projectName_textInput.text + "/NCL/media/image/image";
-				if(imageType1 != -1 || imageType2 != -1 || imageType3 != -1 || imageType4 != -1 || imageType5 != -1){
-					if(imageType1 != -1){
-						imageContent.imageSource = "media/image/image" + imageLabelCounter + ".bmp";
-						var copyFile:File = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter + ".bmp");
-						imageContent.imagePath = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter + ".bmp").nativePath;
-						originalFile.copyToAsync(copyFile, true);
-					}
-					if(imageType2 != -1){
-						imageContent.imageSource = "media/image/image" + imageLabelCounter + ".png";
-						copyFile = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter + ".png");
-						imageContent.imagePath = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter + ".png").nativePath;
-						originalFile.copyToAsync(copyFile, true);
-					}
-					if(imageType3 != -1){
-						imageContent.imageSource = "media/image/image" + imageLabelCounter + ".gif";
-						copyFile = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter + ".gif");
-						imageContent.imagePath = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter + ".gif").nativePath;
-						originalFile.copyToAsync(copyFile, true);
-					}
-					if(imageType4 != -1){
-						imageContent.imageSource = "media/image/image" + imageLabelCounter + ".jpg";
-						copyFile = File.documentsDirectory.resolvePath(imagePath + imageLabelCounter + ".jpg");
-						imageContent.imagePath = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter + ".jpg").nativePath;
-						originalFile.copyToAsync(copyFile, true);
-					}
-					if(imageType5 != -1){
-						imageContent.imageSource = "media/image/image" + imageLabelCounter + ".jpeg";
-						copyFile = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter + ".jpeg");
-						imageContent.imagePath = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter + ".jpeg").nativePath;
-						originalFile.copyToAsync(copyFile, true);
-					}
-					//trace("Path final: " + imageContent.imagePath);
-				}			
-				
+				myimg.addEventListener(Event.COMPLETE, imageLoaded);				
 				okImageSelection.visible = true;
 				okImageSelection.addEventListener(MouseEvent.CLICK, okImageSelection_handler);
 				//this.imageDragArea.scrollRect = new Rectangle(0, 0, this.imageDragArea.width, this.imageDragArea.height);
 			}		
 			
 			private function okImageSelection_handler(evt:Event):void{
+				//reduz tamanho para 30% de imagens grandes que são maiores que a tela de exibição
 				if(myimg.width > imageDragArea.width || myimg.height > imageDragArea.height){					
 					myimg.width = imageDragArea.width * 0.3;
 					myimg.height = imageDragArea.height * 0.3;	
@@ -2528,7 +2594,9 @@
 					imageContent.imageWidth = myimg.width;
 					imageContent.imageHeight = myimg.height;					
 				}
-				else{					
+				else{
+					myimg.width = originalWidth;
+					myimg.height = originalHeight;
 					imageContent.imageWidth = originalWidth;
 					imageContent.imageHeight = originalHeight;					
 				}
@@ -2538,14 +2606,12 @@
 				showImageOnTv.visible = true;
 				showImageOnMobile.visible = true;
 				finishImageEdition.addEventListener(MouseEvent.CLICK, drawImageSlider);
-				
+								
 				myimg.x = (imageDragArea.width - myimg.width) - 10;
 				myimg.y = 10;
 				image_height.maximum = myimg.height + (1,9 * myimg.height);
 				image_width.maximum = myimg.width + (1,9 * myimg.width);				
 				myimg.addEventListener(MouseEvent.CLICK, imageClicked_handler);				
-				//configurar objeto com todas as info necessárias
-				//imageEditionContainer.visible = false;
 			}
 			
 			private function imageClicked_handler(event:MouseEvent):void{
@@ -2607,254 +2673,108 @@
 			}	
 
 			private function drawImageSlider(evt:MouseEvent):void{
-				var colorsArray:Array = new Array();
-				var dataProvider:ArrayCollection = new ArrayCollection();
-				var dataObject:Object = new Object();
-				var sliderMinimum:Number;
-				var sliderMaximum:Number;
-				var sliderCount:int = 0;
-				var finish:Boolean = false;
-				var activeTracker:int;	
-				var imageLabel:String = "image";
+				var imageExists:Boolean = false;
+				var imagePosition:int;	//variavel que guarda a posicao do conteudo de imagem no array de todos conteudos complementares
 				
-				//descobre onde esta posicionado o cursor
-				for(var r:int = 0; r < activeSlider.length; r++){
-					if(activeSlider[r] == true){
-						activeTracker = r;
-					}
-				}	
-				
-				//descobrir o intervalo que ta o inicio
-				var intervalBegin:int;				
-				intervalBegin = (imageContent.imageBeginTime/60)*60;
-				
-				//seleciona onde o cursor foi inicialmente posicionado
-				var firstSliderSelected:int = 0;
-				var index:int = 0;
-				while(index < contentSliderArray.length){
-					if((intervalBegin >= contentSliderArray.getItemAt(index).mainContentSlider.minimum) && 
-						(intervalBegin < contentSliderArray.getItemAt(index).mainContentSlider.maximum)){
-						firstSliderSelected = index;	
-					}
-					index++;
+				/* -- verifica se a imagem inserida é nova ou ja existe -- */
+				for(var h:int = 0; h < allContentInfo.length; h++){
+					if(allContentInfo.getItemAt(h) is ImageContent){
+						if(formatTimeValue(allContentInfo.getItemAt(h).imageBeginTime) == imageBegin.text){
+							imageExists = true;
+							imagePosition = h;
+							trace("Imagens iguais!! :)");
+						}
+					}						
 				}
-				trace("indice da barra inicial: " + firstSliderSelected);
 				
-				//varre todas as barras
-				for(var i:int = 0; i < contentSliderArray.length; i++){
-					//verifica se trecho de conteudo vai ser inserido somente em uma barra
-					if(imageContent.imageBeginTime >= contentSliderArray.getItemAt(i).mainContentSlider.minimum && 
-						imageContent.imageEndTime <= contentSliderArray.getItemAt(i).mainContentSlider.maximum){
-						trace("entrou no if");
-						
-						//realiza teste para verificar se o trecho selecionado pode ser inserido
-						var test:Boolean = false;
-						var found:Boolean = false;
-						
-						if(contentSliderArray.getItemAt(i).isImageSliderActive()){
-							for(k = 1; k < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length; k++){
-								if(!found){
-									if(imageContent.imageBeginTime < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value){
-										//trace("passou no 1 teste");
-										if(imageContent.imageEndTime < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value){
-											test = true;
-											found = true;
-											//trace("ok");
-										}
-										else{
-											//trace("falhou");
-											test = false;
-											found = true;
-										}
-									}									
+				//insere conteudo de texto apenas se não existe um nos tempos escolhidos
+				if(!imageExists){
+					var colorsArray:Array = new Array();
+					var dataProvider:ArrayCollection = new ArrayCollection();
+					var dataObject:Object = new Object();
+					var sliderMinimum:Number;
+					var sliderMaximum:Number;
+					var sliderCount:int = 0;
+					var finish:Boolean = false;
+					var activeTracker:int;	
+					var imageLabel:String = "image";
+					
+					//descobre onde esta posicionado o cursor
+					for(var r:int = 0; r < activeSlider.length; r++){
+						if(activeSlider[r] == true){
+							activeTracker = r;
+						}
+					}	
+					
+					//descobrir o intervalo que ta o inicio
+					var intervalBegin:int;				
+					intervalBegin = (imageContent.imageBeginTime/60)*60;
+					
+					//seleciona onde o cursor foi inicialmente posicionado
+					var firstSliderSelected:int = 0;
+					var index:int = 0;
+					while(index < contentSliderArray.length){
+						if((intervalBegin >= contentSliderArray.getItemAt(index).mainContentSlider.minimum) && 
+							(intervalBegin < contentSliderArray.getItemAt(index).mainContentSlider.maximum)){
+							firstSliderSelected = index;	
+						}
+						index++;
+					}
+					trace("indice da barra inicial: " + firstSliderSelected);
+					
+					//varre todas as barras
+					for(var i:int = 0; i < contentSliderArray.length; i++){
+						//verifica se trecho de conteudo vai ser inserido somente em uma barra
+						if(imageContent.imageBeginTime >= contentSliderArray.getItemAt(i).mainContentSlider.minimum && 
+							imageContent.imageEndTime <= contentSliderArray.getItemAt(i).mainContentSlider.maximum){
+							trace("entrou no if");
+							
+							//realiza teste para verificar se o trecho selecionado pode ser inserido
+							var test:Boolean = false;
+							var found:Boolean = false;
+							
+							if(contentSliderArray.getItemAt(i).isImageSliderActive()){
+								for(k = 1; k < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length; k++){
+									if(!found){
+										if(imageContent.imageBeginTime < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value){
+											//trace("passou no 1 teste");
+											if(imageContent.imageEndTime < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value){
+												test = true;
+												found = true;
+												//trace("ok");
+											}
+											else{
+												//trace("falhou");
+												test = false;
+												found = true;
+											}
+										}									
+									}
 								}
 							}
-						}
-						else
-							test = true;
-						
-						//trace("resultado do teste inicial " + test);					
-						if(test){
-							//verifica se ja existe barra de imagem na posicao atual
-							if(!contentSliderArray.getItemAt(i).isImageSliderActive()){
-								var imageSlider:MultiThumbHSlider = new MultiThumbHSlider();						 
-								imageSlider.isImageContentSlider = true;
-								imageSlider.accentColors = ["0xFFFFFF"];
-								imageSlider.showTrackHighlight = true;
-								imageSlider.x = contentSliderArray.getItemAt(i).mainContentSlider.x;
-								imageSlider.y = contentSliderArray.getItemAt(i).mainContentSlider.y + 15;
-								imageSlider.width = 680;
-								imageSlider.height = 12;	
-								imageSlider.minimum = contentSliderArray.getItemAt(i).mainContentSlider.minimum;
-								imageSlider.maximum = contentSliderArray.getItemAt(i).mainContentSlider.maximum;
-								
-								dataObject.value = imageSlider.minimum;
-								dataObject.fixedValue = true;
-								dataObject.label = "";
-								dataProvider.addItem(dataObject);
-								
-								dataObject = new Object();
-								dataObject.value = imageContent.imageBeginTime;
-								dataObject.fixedValue = true;
-								dataObject.label = "";
-								dataProvider.addItem(dataObject);
-								
-								dataObject = new Object();
-								dataObject.value = imageContent.imageEndTime;
-								dataObject.fixedValue = true;
-								dataObject.label = imageLabel + imageLabelCounter;
-								dataProvider.addItem(dataObject);
-								
-								dataObject = new Object();
-								dataObject.value = imageSlider.maximum;
-								dataObject.fixedValue = true;
-								dataObject.label = "";
-								dataProvider.addItem(dataObject);						
-								
-								for(var k:int = 0; k < dataProvider.length; k++){							
-									if(dataProvider.getItemAt(k).label != ""){
-										//trace("verde");
-										colorsArray.push("0x808000");  //olive						
-									}
-									else{
-										//trace("branco"); 
-										colorsArray.push("0xFFFFFF"); //branco							
-									}							
-								}
-								imageSlider.dataProvider = dataProvider;
-								imageSlider.accentColors = colorsArray;
-								silenceBarsContainer.addElement(imageSlider);
-								
-								//acerta posicionamento das barras abaixo da inserida
-								if(contentSliderArray.getItemAt(activeTracker).isTextSliderActive() ){
-									trace("entrou na condicao " + activeTracker);
-									contentSliderArray.getItemAt(activeTracker).textContentSlider.y = contentSliderArray.getItemAt(activeTracker).textContentSlider.y + 8;								
-									for(k = activeTracker+1; k < contentSliderArray.length; k++){
-										contentSliderArray.getItemAt(k).mainContentSlider.y = contentSliderArray.getItemAt(k).mainContentSlider.y + 8;
-										contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y + 8;
-										if(contentSliderArray.getItemAt(k).isImageSliderActive()){
-											contentSliderArray.getItemAt(k).imageContentSlider.y = contentSliderArray.getItemAt(k).imageContentSlider.y + 8;
-										}
-										if(contentSliderArray.getItemAt(k).isTextSliderActive()){
-											contentSliderArray.getItemAt(k).textContentSlider.y = contentSliderArray.getItemAt(k).textContentSlider.y + 8;
-										}
-									}							
-								}
-								else{
-									trace("else do primeiro if");
-									for(k = activeTracker+1; k < contentSliderArray.length; k++){
-										contentSliderArray.getItemAt(k).mainContentSlider.y = contentSliderArray.getItemAt(k).mainContentSlider.y + 8;
-										contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y + 8;
-										if(contentSliderArray.getItemAt(k).isImageSliderActive()){
-											contentSliderArray.getItemAt(k).imageContentSlider.y = contentSliderArray.getItemAt(k).imageContentSlider.y + 8;
-										}
-										if(contentSliderArray.getItemAt(k).isTextSliderActive()){
-											contentSliderArray.getItemAt(k).textContentSlider.y = contentSliderArray.getItemAt(k).textContentSlider.y + 8;
-										}
-									}
-								}						
-								///////
-								contentSliderArray.getItemAt(i).imageContentSlider = imageSlider;	
-								///////							
-								imageSlider.validateProperties();						
-								imageSlider.minimum = contentSliderArray.getItemAt(i).mainContentSlider.minimum;
-								imageSlider.maximum = contentSliderArray.getItemAt(i).mainContentSlider.maximum;
-								imageSlider.validateProperties();
-								finish = true;
-							}						
-							//ja existe conteudo de imagem na barra em questao
-							else{							
-								contentSliderArray.getItemAt(i).imageContentSlider.accentColors = ["0xFFFFFF"]; //preenche de branco a barra 							
-								var finishDraw:Boolean = false;
-								
-								//zera arrays para preenchimento da barra de imagem
-								colorsArray = new Array();
-								dataProvider = new ArrayCollection();
-								
-								//varre a barra inteira analisando os valores inseridos até o momento na mesma
-								for(k = 1; k < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length; k++){
-									if(!finishDraw){
-										//caso onde se insere o intervalo com conteudo antes dos demais na barra
-										if(k == 1){
-											trace(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value);
-											if(imageContent.imageBeginTime < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value){
-												trace("passou na primeira condicao");
-												if(k < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length - 1){
-													k++;
-													trace("verificacao se e ultima posicao");
-													if(imageContent.imageEndTime < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value){
-														trace("passou na segunda condicao");
-														dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(0));
-														
-														dataObject = new Object();
-														dataObject.value = imageContent.imageBeginTime;
-														dataObject.fixedValue = true;
-														dataObject.label = "";
-														dataProvider.addItem(dataObject);
-														
-														dataObject = new Object();
-														dataObject.value = imageContent.imageEndTime;
-														dataObject.fixedValue = true;
-														dataObject.label = imageLabel + imageLabelCounter;
-														dataProvider.addItem(dataObject);
-														
-														for(var t:int = k-1; t < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length; t++){
-															dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t));
-															trace(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t).value);
-														}
-														finishDraw = true;
-													}
-												}									
-											}
-										}
-										//caso onde se insere o intervalo com conteudo entre os demais na barra(qqer lugar depois do primeiro e antes do ultimo)
-										else{
-											trace("entrou na outra condicao");
-											if(imageContent.imageBeginTime < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value){
-												trace("passou na primeira condicao");
-												if(k < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length - 1){
-													k++;
-													trace("verificacao se e ultima posicao");
-													if(imageContent.imageEndTime < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value){
-														trace("passou na segunda condicao");
-														//dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(0));
-														
-														for(t = 0; t < k - 1; t++){
-															dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t));
-															trace("valores " + contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t).value);
-														}
-														
-														dataObject = new Object();
-														dataObject.value = imageContent.imageBeginTime;
-														dataObject.fixedValue = true;
-														dataObject.label = "";
-														dataProvider.addItem(dataObject);
-														
-														dataObject = new Object();
-														dataObject.value = imageContent.imageEndTime;
-														dataObject.fixedValue = true;
-														dataObject.label = imageLabel + imageLabelCounter;
-														dataProvider.addItem(dataObject);
-														
-														for(t = k - 1; t < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length; t++){
-															dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t));
-															trace("valores " + contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t).value);
-														}	
-														finishDraw = true;													
-													}
-												}
-											}
-										}
-									}
-								}
-								
-								//caso não atenda nenhum dos casos anteriores significa que o trecho será o ultimo da barra
-								if(!finishDraw){
-									trace("entrou no ultimo caso");
-									for(t = 0; t < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length - 1; t++){
-										dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t));
-										trace("valores " + contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t).value);
-									}
+							else
+								test = true;
+							
+							//trace("resultado do teste inicial " + test);					
+							if(test){
+								//verifica se ja existe barra de imagem na posicao atual
+								if(!contentSliderArray.getItemAt(i).isImageSliderActive()){
+									var imageSlider:MultiThumbHSlider = new MultiThumbHSlider();						 
+									imageSlider.isImageContentSlider = true;
+									imageSlider.accentColors = ["0xFFFFFF"];
+									imageSlider.showTrackHighlight = true;
+									imageSlider.left = contentSliderArray.getItemAt(i).mainContentSlider.left;
+									imageSlider.right = contentSliderArray.getItemAt(i).mainContentSlider.right;
+									imageSlider.y = contentSliderArray.getItemAt(i).mainContentSlider.y + 15;
+									imageSlider.width = 680;
+									imageSlider.height = 12;	
+									imageSlider.minimum = contentSliderArray.getItemAt(i).mainContentSlider.minimum;
+									imageSlider.maximum = contentSliderArray.getItemAt(i).mainContentSlider.maximum;
+									
+									dataObject.value = imageSlider.minimum;
+									dataObject.fixedValue = true;
+									dataObject.label = "";
+									dataProvider.addItem(dataObject);
 									
 									dataObject = new Object();
 									dataObject.value = imageContent.imageBeginTime;
@@ -2868,195 +2788,272 @@
 									dataObject.label = imageLabel + imageLabelCounter;
 									dataProvider.addItem(dataObject);
 									
-									dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t));
-								}
-								
-								//inserir normal as cores 
-								for(k = 0; k < dataProvider.length; k++){							
-									if(dataProvider.getItemAt(k).label != ""){
-										//trace("verde");
-										colorsArray.push("0x808000");  //olive						
+									dataObject = new Object();
+									dataObject.value = imageSlider.maximum;
+									dataObject.fixedValue = true;
+									dataObject.label = "";
+									dataProvider.addItem(dataObject);						
+									
+									for(var k:int = 0; k < dataProvider.length; k++){							
+										if(dataProvider.getItemAt(k).label != ""){
+											//trace("verde");
+											colorsArray.push("0x808000");  //olive						
+										}
+										else{
+											//trace("branco"); 
+											colorsArray.push("0xFFFFFF"); //branco							
+										}							
+									}
+									imageSlider.dataProvider = dataProvider;
+									imageSlider.accentColors = colorsArray;
+									silenceBarsContainer.addElement(imageSlider);
+									elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(imageSlider));
+									
+									//acerta posicionamento das barras abaixo da inserida
+									if(contentSliderArray.getItemAt(activeTracker).isTextSliderActive() ){
+										trace("entrou na condicao " + activeTracker);
+										contentSliderArray.getItemAt(activeTracker).textContentSlider.y = contentSliderArray.getItemAt(activeTracker).textContentSlider.y + 8;								
+										for(k = activeTracker+1; k < contentSliderArray.length; k++){
+											contentSliderArray.getItemAt(k).mainContentSlider.y = contentSliderArray.getItemAt(k).mainContentSlider.y + 8;
+											contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y + 8;
+											if(contentSliderArray.getItemAt(k).isImageSliderActive()){
+												contentSliderArray.getItemAt(k).imageContentSlider.y = contentSliderArray.getItemAt(k).imageContentSlider.y + 8;
+											}
+											if(contentSliderArray.getItemAt(k).isTextSliderActive()){
+												contentSliderArray.getItemAt(k).textContentSlider.y = contentSliderArray.getItemAt(k).textContentSlider.y + 8;
+											}
+										}							
 									}
 									else{
-										//trace("branco"); 
-										colorsArray.push("0xFFFFFF"); //branco
-										//colorsArray.push("0xBEBEBE"); //cinzaclaro
-									}							
-								}
-								contentSliderArray.getItemAt(i).imageContentSlider.dataProvider = dataProvider;
-								contentSliderArray.getItemAt(i).imageContentSlider.accentColors = colorsArray;
-								
-								silenceBarsContainer.addElement(contentSliderArray.getItemAt(i).imageContentSlider);
-								
-								contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.validateProperties();						
-								contentSliderArray.getItemAt(i).imageContentSlider.minimum = contentSliderArray.getItemAt(i).mainContentSlider.minimum;
-								contentSliderArray.getItemAt(i).imageContentSlider.maximum = contentSliderArray.getItemAt(i).mainContentSlider.maximum;
-								contentSliderArray.getItemAt(i).imageContentSlider.validateProperties();
-								finish = true;
-							}
-						}
-					}
-					//trecho a ser inserido maior que o valor maximo da barra atual
-					else{
-						test = false;
-						found = false;
-						
-						trace("firstSelected " + firstSliderSelected + "  active " + activeTracker);
-						//trecho de código realiza verificação da possibilidade de inserir o conteudo no trecho especificado pelo usuário
-						for(k = firstSliderSelected; k <= activeTracker; k++){
-							if(!found){
-								if(contentSliderArray.getItemAt(k).isImageSliderActive()){
-									trace("entrou no caso que tem coisa desenhada");
-									for(r = 1; r < (contentSliderArray.getItemAt(k).imageContentSlider.dataProvider.length - 1); r++){
-										if(imageContent.imageBeginTime > contentSliderArray.getItemAt(k).imageContentSlider.dataProvider.getItemAt(r).value){
-											trace("1 condicao satisfeita");
-											for(t = k+1; t <= activeTracker; t++){
-												if(contentSliderArray.getItemAt(t).isImageSliderActive()){
-													for(var y:int = 1; y < (contentSliderArray.getItemAt(t).imageContentSlider.dataProvider.length - 1); y++){
-														if(imageContent.imageEndTime < contentSliderArray.getItemAt(t).imageContentSlider.dataProvider.getItemAt(y).value){
-															test = true;
-															found = true;
+										trace("else do primeiro if");
+										for(k = activeTracker+1; k < contentSliderArray.length; k++){
+											contentSliderArray.getItemAt(k).mainContentSlider.y = contentSliderArray.getItemAt(k).mainContentSlider.y + 8;
+											contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y + 8;
+											if(contentSliderArray.getItemAt(k).isImageSliderActive()){
+												contentSliderArray.getItemAt(k).imageContentSlider.y = contentSliderArray.getItemAt(k).imageContentSlider.y + 8;
+											}
+											if(contentSliderArray.getItemAt(k).isTextSliderActive()){
+												contentSliderArray.getItemAt(k).textContentSlider.y = contentSliderArray.getItemAt(k).textContentSlider.y + 8;
+											}
+										}
+									}						
+									///////
+									contentSliderArray.getItemAt(i).imageContentSlider = imageSlider;	
+									///////							
+									imageSlider.validateProperties();						
+									imageSlider.minimum = contentSliderArray.getItemAt(i).mainContentSlider.minimum;
+									imageSlider.maximum = contentSliderArray.getItemAt(i).mainContentSlider.maximum;
+									imageSlider.validateProperties();
+									finish = true;
+								}						
+								//ja existe conteudo de imagem na barra em questao
+								else{							
+									contentSliderArray.getItemAt(i).imageContentSlider.accentColors = ["0xFFFFFF"]; //preenche de branco a barra 							
+									var finishDraw:Boolean = false;
+									
+									//zera arrays para preenchimento da barra de imagem
+									colorsArray = new Array();
+									dataProvider = new ArrayCollection();
+									
+									//varre a barra inteira analisando os valores inseridos até o momento na mesma
+									for(k = 1; k < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length; k++){
+										if(!finishDraw){
+											//caso onde se insere o intervalo com conteudo antes dos demais na barra
+											if(k == 1){
+												trace(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value);
+												if(imageContent.imageBeginTime < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value){
+													trace("passou na primeira condicao");
+													if(k < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length - 1){
+														k++;
+														trace("verificacao se e ultima posicao");
+														if(imageContent.imageEndTime < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value){
+															trace("passou na segunda condicao");
+															dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(0));
+															
+															dataObject = new Object();
+															dataObject.value = imageContent.imageBeginTime;
+															dataObject.fixedValue = true;
+															dataObject.label = "";
+															dataProvider.addItem(dataObject);
+															
+															dataObject = new Object();
+															dataObject.value = imageContent.imageEndTime;
+															dataObject.fixedValue = true;
+															dataObject.label = imageLabel + imageLabelCounter;
+															dataProvider.addItem(dataObject);
+															
+															for(var t:int = k-1; t < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length; t++){
+																dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t));
+																trace(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t).value);
+															}
+															finishDraw = true;
 														}
-														else
-															test = false;
-													}
+													}									
 												}
-												else{
-													trace("teste correto");
-													test = true;
+											}
+											//caso onde se insere o intervalo com conteudo entre os demais na barra(qqer lugar depois do primeiro e antes do ultimo)
+											else{
+												trace("entrou na outra condicao");
+												if(imageContent.imageBeginTime < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value){
+													trace("passou na primeira condicao");
+													if(k < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length - 1){
+														k++;
+														trace("verificacao se e ultima posicao");
+														if(imageContent.imageEndTime < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value){
+															trace("passou na segunda condicao");
+															//dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(0));
+															
+															for(t = 0; t < k - 1; t++){
+																dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t));
+																trace("valores " + contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t).value);
+															}
+															
+															dataObject = new Object();
+															dataObject.value = imageContent.imageBeginTime;
+															dataObject.fixedValue = true;
+															dataObject.label = "";
+															dataProvider.addItem(dataObject);
+															
+															dataObject = new Object();
+															dataObject.value = imageContent.imageEndTime;
+															dataObject.fixedValue = true;
+															dataObject.label = imageLabel + imageLabelCounter;
+															dataProvider.addItem(dataObject);
+															
+															for(t = k - 1; t < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length; t++){
+																dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t));
+																trace("valores " + contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t).value);
+															}	
+															finishDraw = true;													
+														}
+													}
 												}
 											}
 										}
-										else
-											test = false;
-									}								
-								}
-								else{
-									for(t = k+1; t <= activeTracker; t++){
-										//trace("valor de t: " + t);										
-										if(contentSliderArray.getItemAt(t).isImageSliderActive()){
-											//trace("quantos valores a passar: " + (contentSliderArray.getItemAt(t).imageContentSlider.dataProvider.length - 1));
-											//for(var y:int = 1; y < (contentSliderArray.getItemAt(t).imageContentSlider.dataProvider.length - 1); y++){
-												if(imageContent.imageEndTime < contentSliderArray.getItemAt(t).imageContentSlider.dataProvider.getItemAt(1).value){
-													//trace("ok");
-													test = true;
-													found = true;
-												}
-												else{
-													//trace("else bendito que fudeu");
-													test = false;
-												}
-											//}
+									}
+									
+									//caso não atenda nenhum dos casos anteriores significa que o trecho será o ultimo da barra
+									if(!finishDraw){
+										trace("entrou no ultimo caso");
+										for(t = 0; t < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length - 1; t++){
+											dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t));
+											trace("valores " + contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t).value);
 										}
-										else{
-											test = true;
-										}
-									}								
-								}
-							}
-						}
-						trace("resultado final " + test);
-						if(test){
-							if((intervalBegin >= contentSliderArray.getItemAt(i).mainContentSlider.minimum) && 
-								(intervalBegin < contentSliderArray.getItemAt(i).mainContentSlider.maximum)){
-								if(!finish){
-									//cursor inicial não possui barra de imagem ja desenhada
-									if(!contentSliderArray.getItemAt(i).isImageSliderActive()){
-										trace("desenhou primeira");
-										var j:int = i;
-										imageSlider = new MultiThumbHSlider();
-										imageSlider.isImageContentSlider = true;
-										imageSlider.accentColors = ["0xFFFFFF"];
-										imageSlider.showTrackHighlight = true;
-										imageSlider.x = contentSliderArray.getItemAt(j).mainContentSlider.x;
-										imageSlider.y = contentSliderArray.getItemAt(j).mainContentSlider.y + 15;
-										imageSlider.width = 678;
-										imageSlider.height = 12;	
-										imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
-										imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
-										
-										dataObject = new Object();
-										dataObject.value = imageSlider.minimum;
-										dataObject.fixedValue = true;
-										dataObject.label = "";
-										dataProvider.addItem(dataObject);
 										
 										dataObject = new Object();
 										dataObject.value = imageContent.imageBeginTime;
 										dataObject.fixedValue = true;
 										dataObject.label = "";
-										dataProvider.addItem(dataObject);							
+										dataProvider.addItem(dataObject);
 										
 										dataObject = new Object();
-										dataObject.value = imageSlider.maximum;
+										dataObject.value = imageContent.imageEndTime;
 										dataObject.fixedValue = true;
 										dataObject.label = imageLabel + imageLabelCounter;
 										dataProvider.addItem(dataObject);
 										
-										for(k= 0; k < dataProvider.length; k++){							
-											if(dataProvider.getItemAt(k).label != ""){
-												//trace("verde");
-												colorsArray.push("0x808000");  //olive						
-											}
-											else{
-												//trace("branco");
-												colorsArray.push("0xFFFFFF"); //branco							
-											}							
-										}
-										imageSlider.dataProvider = dataProvider;
-										imageSlider.accentColors = colorsArray;
-										silenceBarsContainer.addElement(imageSlider);
-											
-										//acerta posicionamento das barras posteriores a barra inserida
-										if(contentSliderArray.getItemAt(j).isTextSliderActive()){
-											//trace("situacao " + contentSliderArray.getItemAt(j).isImageSliderActive() + " r:" + j);
-											trace("verificou e viu que ja tem barra desenhada");
-											contentSliderArray.getItemAt(j).textContentSlider.y = contentSliderArray.getItemAt(j).textContentSlider.y + 8;
-											for(k = j+1; k < contentSliderArray.length; k++){
-												contentSliderArray.getItemAt(k).mainContentSlider.y = contentSliderArray.getItemAt(k).mainContentSlider.y + 8;
-												contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y + 8;
-												if(contentSliderArray.getItemAt(k).isImageSliderActive()){
-													contentSliderArray.getItemAt(k).imageContentSlider.y = contentSliderArray.getItemAt(k).imageContentSlider.y + 8;
-												}
-												if(contentSliderArray.getItemAt(k).isTextSliderActive()){
-													contentSliderArray.getItemAt(k).textContentSlider.y = contentSliderArray.getItemAt(k).textContentSlider.y + 8;
-												}
-											}
+										dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t));
+									}
+									
+									//inserir normal as cores 
+									for(k = 0; k < dataProvider.length; k++){							
+										if(dataProvider.getItemAt(k).label != ""){
+											//trace("verde");
+											colorsArray.push("0x808000");  //olive						
 										}
 										else{
-											for(r = j+1; r < contentSliderArray.length; r++){
-												contentSliderArray.getItemAt(r).mainContentSlider.y = contentSliderArray.getItemAt(r).mainContentSlider.y + 8;
-												contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y + 8;
-												if(contentSliderArray.getItemAt(r).isImageSliderActive()){
-													contentSliderArray.getItemAt(r).imageContentSlider.y = contentSliderArray.getItemAt(r).imageContentSlider.y + 8;
-												}
-												if(contentSliderArray.getItemAt(r).isTextSliderActive()){
-													contentSliderArray.getItemAt(r).textContentSlider.y = contentSliderArray.getItemAt(r).textContentSlider.y + 8;
+											//trace("branco"); 
+											colorsArray.push("0xFFFFFF"); //branco
+											//colorsArray.push("0xBEBEBE"); //cinzaclaro
+										}							
+									}
+									contentSliderArray.getItemAt(i).imageContentSlider.dataProvider = dataProvider;
+									contentSliderArray.getItemAt(i).imageContentSlider.accentColors = colorsArray;
+									
+									silenceBarsContainer.addElement(contentSliderArray.getItemAt(i).imageContentSlider);
+									
+									contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.validateProperties();						
+									contentSliderArray.getItemAt(i).imageContentSlider.minimum = contentSliderArray.getItemAt(i).mainContentSlider.minimum;
+									contentSliderArray.getItemAt(i).imageContentSlider.maximum = contentSliderArray.getItemAt(i).mainContentSlider.maximum;
+									contentSliderArray.getItemAt(i).imageContentSlider.validateProperties();
+									finish = true;
+								}
+							}
+						}
+						//trecho a ser inserido maior que o valor maximo da barra atual
+						else{
+							test = false;
+							found = false;
+							
+							trace("firstSelected " + firstSliderSelected + "  active " + activeTracker);
+							//trecho de código realiza verificação da possibilidade de inserir o conteudo no trecho especificado pelo usuário
+							for(k = firstSliderSelected; k <= activeTracker; k++){
+								if(!found){
+									if(contentSliderArray.getItemAt(k).isImageSliderActive()){
+										trace("entrou no caso que tem coisa desenhada");
+										for(r = 1; r < (contentSliderArray.getItemAt(k).imageContentSlider.dataProvider.length - 1); r++){
+											if(imageContent.imageBeginTime > contentSliderArray.getItemAt(k).imageContentSlider.dataProvider.getItemAt(r).value){
+												trace("1 condicao satisfeita");
+												for(t = k+1; t <= activeTracker; t++){
+													if(contentSliderArray.getItemAt(t).isImageSliderActive()){
+														for(var y:int = 1; y < (contentSliderArray.getItemAt(t).imageContentSlider.dataProvider.length - 1); y++){
+															if(imageContent.imageEndTime < contentSliderArray.getItemAt(t).imageContentSlider.dataProvider.getItemAt(y).value){
+																test = true;
+																found = true;
+															}
+															else
+																test = false;
+														}
+													}
+													else{
+														trace("teste correto");
+														test = true;
+													}
 												}
 											}
-										}
-										
-										///////
-										contentSliderArray.getItemAt(j).imageContentSlider = imageSlider;
-										///////
-										imageSlider.validateProperties();
-										
-										imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
-										imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
-										imageSlider.validateProperties();								
-										j++;
-										
-										//loop que desenha barras intermediárias menos a ultima
-										while(j < contentSliderArray.length && imageContent.imageEndTime > contentSliderArray.getItemAt(j).mainContentSlider.maximum){
-											trace("entrou no while");
-											//trace(silenceSlidersArray.getItemAt(j).maximum);	
-											imageSlider = new MultiThumbHSlider();	
+											else
+												test = false;
+										}								
+									}
+									else{
+										for(t = k+1; t <= activeTracker; t++){
+											//trace("valor de t: " + t);										
+											if(contentSliderArray.getItemAt(t).isImageSliderActive()){
+												//trace("quantos valores a passar: " + (contentSliderArray.getItemAt(t).imageContentSlider.dataProvider.length - 1));
+												//for(var y:int = 1; y < (contentSliderArray.getItemAt(t).imageContentSlider.dataProvider.length - 1); y++){
+													if(imageContent.imageEndTime < contentSliderArray.getItemAt(t).imageContentSlider.dataProvider.getItemAt(1).value){
+														//trace("ok");
+														test = true;
+														found = true;
+													}
+													else{
+														//trace("else bendito que fudeu");
+														test = false;
+													}
+												//}
+											}
+											else{
+												test = true;
+											}
+										}								
+									}
+								}
+							}
+							trace("resultado final " + test);
+							if(test){
+								if((intervalBegin >= contentSliderArray.getItemAt(i).mainContentSlider.minimum) && 
+									(intervalBegin < contentSliderArray.getItemAt(i).mainContentSlider.maximum)){
+									if(!finish){
+										//cursor inicial não possui barra de imagem ja desenhada
+										if(!contentSliderArray.getItemAt(i).isImageSliderActive()){
+											trace("desenhou primeira");
+											var j:int = i;
+											imageSlider = new MultiThumbHSlider();
 											imageSlider.isImageContentSlider = true;
-											dataProvider = new ArrayCollection();
-											colorsArray = new Array();
 											imageSlider.accentColors = ["0xFFFFFF"];
 											imageSlider.showTrackHighlight = true;
-											imageSlider.x = contentSliderArray.getItemAt(j).mainContentSlider.x;
+											imageSlider.left = contentSliderArray.getItemAt(j).mainContentSlider.left;
+											imageSlider.right = contentSliderArray.getItemAt(j).mainContentSlider.right;
 											imageSlider.y = contentSliderArray.getItemAt(j).mainContentSlider.y + 15;
 											imageSlider.width = 678;
 											imageSlider.height = 12;	
@@ -3070,17 +3067,21 @@
 											dataProvider.addItem(dataObject);
 											
 											dataObject = new Object();
+											dataObject.value = imageContent.imageBeginTime;
+											dataObject.fixedValue = true;
+											dataObject.label = "";
+											dataProvider.addItem(dataObject);							
+											
+											dataObject = new Object();
 											dataObject.value = imageSlider.maximum;
 											dataObject.fixedValue = true;
 											dataObject.label = imageLabel + imageLabelCounter;
-											dataProvider = new ArrayCollection();
 											dataProvider.addItem(dataObject);
-											colorsArray = new Array();
 											
 											for(k= 0; k < dataProvider.length; k++){							
 												if(dataProvider.getItemAt(k).label != ""){
 													//trace("verde");
-													colorsArray.push("0x808000");  //olive					
+													colorsArray.push("0x808000");  //olive						
 												}
 												else{
 													//trace("branco");
@@ -3090,11 +3091,12 @@
 											imageSlider.dataProvider = dataProvider;
 											imageSlider.accentColors = colorsArray;
 											silenceBarsContainer.addElement(imageSlider);
-											
-											//acerta posicionamento das barras posteriores
+											elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(imageSlider));
+												
+											//acerta posicionamento das barras posteriores a barra inserida
 											if(contentSliderArray.getItemAt(j).isTextSliderActive()){
-												//trace("situacao " + contentSliderArray.getItemAt(j).isTextSliderActive() + " r:" + j);
-												//trace("verificou e viu que ja tem barra desenhada");
+												//trace("situacao " + contentSliderArray.getItemAt(j).isImageSliderActive() + " r:" + j);
+												trace("verificou e viu que ja tem barra desenhada");
 												contentSliderArray.getItemAt(j).textContentSlider.y = contentSliderArray.getItemAt(j).textContentSlider.y + 8;
 												for(k = j+1; k < contentSliderArray.length; k++){
 													contentSliderArray.getItemAt(k).mainContentSlider.y = contentSliderArray.getItemAt(k).mainContentSlider.y + 8;
@@ -3127,516 +3129,722 @@
 											
 											imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
 											imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
-											imageSlider.validateProperties();									
+											imageSlider.validateProperties();								
+											j++;
 											
-											j++ //incrementa j para continuar o percurso pelo array de barras
-										}
-										//trace("depois do while");
-										
-										//desenha ultima barra acertando posicionamento
-										if(!contentSliderArray.getItemAt(j).isImageSliderActive()){
-											trace("nao tem barrinha ainda");
-											imageSlider = new MultiThumbHSlider();	
-											imageSlider.isImageContentSlider = true;
-											dataProvider = new ArrayCollection();
-											colorsArray = new Array();
-											imageSlider.accentColors = ["0xFFFFFF"];
-											imageSlider.showTrackHighlight = true;
-											imageSlider.x = contentSliderArray.getItemAt(j).mainContentSlider.x;
-											imageSlider.y = contentSliderArray.getItemAt(j).mainContentSlider.y + 15;
-											imageSlider.width = 678;
-											imageSlider.height = 12;	
-											imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
-											imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
-										}
-										else{
-											contentSliderArray.getItemAt(j).imageContentSlider.accentColors = ["0xFFFFFF"];
-											colorsArray = new Array();
-											dataProvider = new ArrayCollection();
-										}
-										
-										dataObject = new Object();
-										dataObject.value = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
-										dataObject.fixedValue = true;
-										dataObject.label = "";
-										dataProvider.addItem(dataObject);
-										
-										dataObject = new Object();
-										dataObject.value = imageContent.imageEndTime;
-										dataObject.fixedValue = true;
-										dataObject.label = imageLabel + imageLabelCounter;
-										dataProvider.addItem(dataObject);
-										
-										if(contentSliderArray.getItemAt(j).isImageSliderActive()){
-											for(t = 1; t < contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.length; t++){
-												dataProvider.addItem(contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.getItemAt(t));
-												//trace("valores " + contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t).value);
-											}	
-										}
-										else{
-											//uso somente se a barra a ser inserida é nova 
-											trace("inseriu max da barra");
-											dataObject = new Object();
-											dataObject.value = imageSlider.maximum;
-											dataObject.fixedValue = true;
-											dataObject.label = "";
-											dataProvider.addItem(dataObject);
-										}
-										
-										//inserir normal
-										for(k = 0; k < dataProvider.length; k++){							
-											if(dataProvider.getItemAt(k).label != ""){
-												//trace("verde");
-												colorsArray.push("0x808000");  //olive						
-											}
-											else{
-												//trace("branco"); 
-												colorsArray.push("0xFFFFFF"); //branco
-												//colorsArray.push("0xBEBEBE"); //cinzaclaro
-											}							
-										}
-										
-										if(contentSliderArray.getItemAt(j).isImageSliderActive()){
-											contentSliderArray.getItemAt(j).imageContentSlider.dataProvider = dataProvider;
-											contentSliderArray.getItemAt(j).imageContentSlider.accentColors = colorsArray;
-										}
-										else{
-											//trace("ok");
-											imageSlider.dataProvider = dataProvider;
-											imageSlider.accentColors = colorsArray;
-										}
-										
-										if(contentSliderArray.getItemAt(j).isImageSliderActive()){
-											silenceBarsContainer.addElement(contentSliderArray.getItemAt(j).imageContentSlider);
-											contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.validateProperties();						
-											contentSliderArray.getItemAt(j).imageContentSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
-											contentSliderArray.getItemAt(j).imageContentSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
-											contentSliderArray.getItemAt(j).imageContentSlider.validateProperties();
-											finish = true;
-										}
-										else{
-											//acerta posicao das barrinhas posteriores a que foi inserida
-											j = activeTracker;								
-											trace("activeTracker: " + activeTracker);
-											if(contentSliderArray.getItemAt(j).isTextSliderActive()){
-												trace("entrou qndo tem texto");
-												contentSliderArray.getItemAt(j).textContentSlider.y = contentSliderArray.getItemAt(j).textContentSlider.y + 8;
-												for(k = j+1; k < contentSliderArray.length; k++){
-													contentSliderArray.getItemAt(k).mainContentSlider.y = contentSliderArray.getItemAt(k).mainContentSlider.y + 8;
-													contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y + 8;
-													if(contentSliderArray.getItemAt(k).isImageSliderActive()){
-														contentSliderArray.getItemAt(k).imageContentSlider.y = contentSliderArray.getItemAt(k).imageContentSlider.y + 8;
-													}
-													if(contentSliderArray.getItemAt(k).isTextSliderActive()){
-														contentSliderArray.getItemAt(k).textContentSlider.y = contentSliderArray.getItemAt(k).textContentSlider.y + 8;
-													}
-												}
-											}
-											else{
-												for(r = j+1; r < contentSliderArray.length; r++){
-													contentSliderArray.getItemAt(r).mainContentSlider.y = contentSliderArray.getItemAt(r).mainContentSlider.y + 8;
-													contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y + 8;
-													if(contentSliderArray.getItemAt(r).isImageSliderActive()){
-														trace("tem barra desenhada " + r);
-														contentSliderArray.getItemAt(r).imageContentSlider.y = contentSliderArray.getItemAt(r).imageContentSlider.y + 8;
-													}
-													if(contentSliderArray.getItemAt(r).isTextSliderActive()){
-														trace("entrou onde eu queria testar");
-														contentSliderArray.getItemAt(r).textContentSlider.y = contentSliderArray.getItemAt(r).textContentSlider.y + 8;
-													}
-												}
-											}								
-											
-											silenceBarsContainer.addElement(imageSlider);
-											///////
-											contentSliderArray.getItemAt(j).imageContentSlider = imageSlider;
-											///////
-											imageSlider.validateProperties();
-											
-											imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
-											imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
-											imageSlider.validateProperties();
-											finish = true;
-										}
-									}
-									//tratar caso em que ja existe conteudo de imagem na barra
-									else{
-										trace("entrou no caso que ja existe conteudo de imagem na barra");
-										//contentSliderArray.getItemAt(i).imageContentSlider.accentColors = ["0xFFFFFF"];
-										
-										//var finishDraw:Boolean = false;
-										//var test:Boolean = false;
-										//var found:Boolean = false;
-										colorsArray = new Array();
-										dataProvider = new ArrayCollection();
-										
-										for(k = 1; k < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length; k++){
-											if(imageContent.imageBeginTime > contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value){
-												trace("passou na condicao 1 caso2");
-												j = i;
-												//trace("j " + j + ", activeTracker " + activeTracker);
-												if(j != activeTracker){
-													j++;
-													//trace("j != activeTracker" + "  tamanhoArray " + contentSliderArray.length);
-													while(j <= activeTracker+1 && j < contentSliderArray.length && !found){
-														//trace("valor de j " + j);
-														if(contentSliderArray.getItemAt(j).isImageSliderActive()){
-															for(t = 1; t < contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.length; t++){
-																//trace("ativo? " + contentSliderArray.getItemAt(j).isImageSliderActive());
-																if(!found){
-																	if(imageContent.imageEndTime < contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.getItemAt(t).value){
-																		//trace("entrou no teste");
-																		test = true;
-																		found = true;
-																	}
-																	else{
-																		//trace("test=false");
-																		test = false;
-																	}
-																}
-															}																												
-															j++;
-														}
-														else{														
-															j++;
-															test = true;
-														}														
-													}
-												}
-											}
-										}
-										trace("valor final do teste " + test);
-										if(test){
-											if(!finish){
-												//insere valores ja colocados na barra anteriormente
-												for(t = 0; t < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length - 1; t++){
-													dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t));
-													//trace("valores " + contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t).value);
-												}
+											//loop que desenha barras intermediárias menos a ultima
+											while(j < contentSliderArray.length && imageContent.imageEndTime > contentSliderArray.getItemAt(j).mainContentSlider.maximum){
+												trace("entrou no while");
+												//trace(silenceSlidersArray.getItemAt(j).maximum);	
+												imageSlider = new MultiThumbHSlider();	
+												imageSlider.isImageContentSlider = true;
+												dataProvider = new ArrayCollection();
+												colorsArray = new Array();
+												imageSlider.accentColors = ["0xFFFFFF"];
+												imageSlider.showTrackHighlight = true;
+												imageSlider.left = contentSliderArray.getItemAt(j).mainContentSlider.left;
+												imageSlider.right = contentSliderArray.getItemAt(j).mainContentSlider.right;
+												imageSlider.y = contentSliderArray.getItemAt(j).mainContentSlider.y + 15;
+												imageSlider.width = 678;
+												imageSlider.height = 12;	
+												imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
+												imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
 												
 												dataObject = new Object();
-												dataObject.value = imageContent.imageBeginTime;
+												dataObject.value = imageSlider.minimum;
 												dataObject.fixedValue = true;
 												dataObject.label = "";
 												dataProvider.addItem(dataObject);
 												
 												dataObject = new Object();
-												dataObject.value = imageContent.imageEndTime;
+												dataObject.value = imageSlider.maximum;
 												dataObject.fixedValue = true;
 												dataObject.label = imageLabel + imageLabelCounter;
+												dataProvider = new ArrayCollection();
 												dataProvider.addItem(dataObject);
+												colorsArray = new Array();
 												
-												dataObject = new Object();
-												dataObject.value = contentSliderArray.getItemAt(i).imageContentSlider.maximum;
-												dataObject.fixedValue = true;
-												dataObject.label = imageLabel + imageLabelCounter;
-												dataProvider.addItem(dataObject);										
-												
-												//inserir normal
-												for(k = 0; k < dataProvider.length; k++){							
-													if(dataProvider.getItemAt(k).label != ""){
-														//trace("verde");
-														colorsArray.push("0x808000");  //olive						
-													}
-													else{
-														//trace("branco"); 
-														colorsArray.push("0xFFFFFF"); //branco
-														//colorsArray.push("0xBEBEBE"); //cinzaclaro
-													}							
-												}
-												contentSliderArray.getItemAt(i).imageContentSlider.dataProvider = dataProvider;
-												contentSliderArray.getItemAt(i).imageContentSlider.accentColors = colorsArray;
-												
-												silenceBarsContainer.addElement(contentSliderArray.getItemAt(i).imageContentSlider);
-												
-												contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.validateProperties();						
-												contentSliderArray.getItemAt(i).imageContentSlider.minimum = contentSliderArray.getItemAt(i).mainContentSlider.minimum;
-												contentSliderArray.getItemAt(i).imageContentSlider.maximum = contentSliderArray.getItemAt(i).mainContentSlider.maximum;
-												contentSliderArray.getItemAt(i).imageContentSlider.validateProperties();
-												
-												j = i;
-												j++;
-												//loop para desenhara barras intermediarias menos a ultima
-												while(j < contentSliderArray.length && imageContent.imageEndTime > contentSliderArray.getItemAt(j).mainContentSlider.maximum){
-													//desenha barras intermediarias
-													trace("entrou no while pilantra");
-													imageSlider = new MultiThumbHSlider();	
-													imageSlider.isImageContentSlider = true;
-													dataProvider = new ArrayCollection();
-													colorsArray = new Array();
-													imageSlider.accentColors = ["0xFFFFFF"];
-													imageSlider.showTrackHighlight = true;
-													imageSlider.x = contentSliderArray.getItemAt(j).mainContentSlider.x;
-													imageSlider.y = contentSliderArray.getItemAt(j).mainContentSlider.y + 15;
-													imageSlider.width = 678;
-													imageSlider.height = 12;	
-													imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
-													imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
-													
-													dataObject = new Object();
-													dataObject.value = imageSlider.minimum;
-													dataObject.fixedValue = true;
-													dataObject.label = imageLabel + imageLabelCounter;
-													dataProvider.addItem(dataObject);
-													
-													dataObject = new Object();
-													dataObject.value = imageSlider.maximum;
-													dataObject.fixedValue = true;
-													dataObject.label = imageLabel + imageLabelCounter;
-													dataProvider = new ArrayCollection();
-													dataProvider.addItem(dataObject);
-													colorsArray = new Array();
-													
-													for(k= 0; k < dataProvider.length; k++){							
-														if(dataProvider.getItemAt(k).label != ""){
-															//trace("verde");
-															colorsArray.push("0x808000");  //olive					
-														}
-														else{
-															//trace("branco");
-															colorsArray.push("0xFFFFFF"); //branco							
-														}							
-													}
-													imageSlider.dataProvider = dataProvider;
-													imageSlider.accentColors = colorsArray;
-													silenceBarsContainer.addElement(imageSlider);
-													
-													if(contentSliderArray.getItemAt(j).isTextSliderActive()){
-														//trace("situacao " + contentSliderArray.getItemAt(j).isImageSliderActive() + " r:" + j);
-														//trace("verificou e viu que ja tem barra desenhada");
-														contentSliderArray.getItemAt(j).textContentSlider.y = contentSliderArray.getItemAt(j).textContentSlider.y + 8;
-														for(k = j+1; k < contentSliderArray.length; k++){
-															contentSliderArray.getItemAt(k).mainContentSlider.y = contentSliderArray.getItemAt(k).mainContentSlider.y + 8;
-															contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y + 8;
-															if(contentSliderArray.getItemAt(k).isImageSliderActive()){
-																contentSliderArray.getItemAt(k).imageContentSlider.y = contentSliderArray.getItemAt(k).imageContentSlider.y + 8;
-															}
-															if(contentSliderArray.getItemAt(k).isTextSliderActive()){
-																contentSliderArray.getItemAt(k).textContentSlider.y = contentSliderArray.getItemAt(k).textContentSlider.y + 8;
-															}
-														}
-													}
-													else{
-														for(r = j+1; r < contentSliderArray.length; r++){
-															contentSliderArray.getItemAt(r).mainContentSlider.y = contentSliderArray.getItemAt(r).mainContentSlider.y + 8;
-															contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y + 8;
-															if(contentSliderArray.getItemAt(r).isImageSliderActive()){
-																contentSliderArray.getItemAt(r).imageContentSlider.y = contentSliderArray.getItemAt(r).imageContentSlider.y + 8;
-															}
-															if(contentSliderArray.getItemAt(k).isTextSliderActive()){
-																contentSliderArray.getItemAt(k).textContentSlider.y = contentSliderArray.getItemAt(k).textContentSlider.y + 8;
-															}
-														}
-													}
-													
-													///////
-													contentSliderArray.getItemAt(j).imageContentSlider = imageSlider;
-													///////
-													imageSlider.validateProperties();
-													
-													imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
-													imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
-													imageSlider.validateProperties();									
-													
-													j++ //incrementa j para continuar o percurso pelo array de barras*/
-												}
-												
-												//trace("depois do while");
-												//desenha ultima barra acertando posicionamento
-												if(!contentSliderArray.getItemAt(j).isImageSliderActive()){
-													trace("nao tem barrinha ainda");
-													imageSlider = new MultiThumbHSlider();	
-													imageSlider.isImageContentSlider = true;
-													dataProvider = new ArrayCollection();
-													colorsArray = new Array();
-													imageSlider.accentColors = ["0xFFFFFF"];
-													imageSlider.showTrackHighlight = true;
-													imageSlider.x = contentSliderArray.getItemAt(j).mainContentSlider.x;
-													imageSlider.y = contentSliderArray.getItemAt(j).mainContentSlider.y + 15;
-													imageSlider.width = 678;
-													imageSlider.height = 12;	
-													imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
-													imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
-												}
-												else{
-													contentSliderArray.getItemAt(j).imageContentSlider.accentColors = ["0xFFFFFF"];
-													colorsArray = new Array();
-													dataProvider = new ArrayCollection();
-												}
-																					
-												dataObject = new Object();
-												dataObject.value = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
-												dataObject.fixedValue = true;
-												dataObject.label = "";
-												dataProvider.addItem(dataObject);
-												
-												dataObject = new Object();
-												dataObject.value = imageContent.imageEndTime;
-												dataObject.fixedValue = true;
-												dataObject.label = imageLabel + imageLabelCounter;
-												dataProvider.addItem(dataObject);
-												
-												if(contentSliderArray.getItemAt(j).isImageSliderActive()){
-													for(t = 1; t < contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.length; t++){
-														dataProvider.addItem(contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.getItemAt(t));
-														//trace("valores " + contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t).value);
-													}	
-												}
-												else{
-													//uso somente se a barra a ser inserida é nova 
-													trace("inseriu max da barra");
-													dataObject = new Object();
-													dataObject.value = imageSlider.maximum;
-													dataObject.fixedValue = true;
-													dataObject.label = "";
-													dataProvider.addItem(dataObject);
-												}
-												
-												//inserir normal
-												for(k = 0; k < dataProvider.length; k++){							
+												for(k= 0; k < dataProvider.length; k++){							
 													if(dataProvider.getItemAt(k).label != ""){
 														//trace("verde");
 														colorsArray.push("0x808000");  //olive					
 													}
 													else{
-														//trace("branco"); 
-														colorsArray.push("0xFFFFFF"); //branco
-														//colorsArray.push("0xBEBEBE"); //cinzaclaro
+														//trace("branco");
+														colorsArray.push("0xFFFFFF"); //branco							
 													}							
 												}
+												imageSlider.dataProvider = dataProvider;
+												imageSlider.accentColors = colorsArray;
+												silenceBarsContainer.addElement(imageSlider);
+												elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(imageSlider));
 												
-												if(contentSliderArray.getItemAt(j).isImageSliderActive()){
-													contentSliderArray.getItemAt(j).imageContentSlider.dataProvider = dataProvider;
-													contentSliderArray.getItemAt(j).imageContentSlider.accentColors = colorsArray;
-												}
-												else{
-													//trace("ok");
-													imageSlider.dataProvider = dataProvider;
-													imageSlider.accentColors = colorsArray;
-												}
-												
-												if(contentSliderArray.getItemAt(j).isImageSliderActive()){
-													silenceBarsContainer.addElement(contentSliderArray.getItemAt(j).imageContentSlider);
-													contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.validateProperties();						
-													contentSliderArray.getItemAt(j).imageContentSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
-													contentSliderArray.getItemAt(j).imageContentSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
-													contentSliderArray.getItemAt(j).imageContentSlider.validateProperties();
-													finish = true;
-												}
-												else{
-													//acertar posicao das barrinhas
-													j = activeTracker;								
-													trace("activeTracker: " + activeTracker);
-													if(contentSliderArray.getItemAt(j).isTextSliderActive()){
-														trace("entrou qndo tem texto");
-														contentSliderArray.getItemAt(j).textContentSlider.y = contentSliderArray.getItemAt(j).textContentSlider.y + 8;
-														for(k = j+1; k < contentSliderArray.length; k++){
-															contentSliderArray.getItemAt(k).mainContentSlider.y = contentSliderArray.getItemAt(k).mainContentSlider.y + 8;
-															contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y + 8;
-															if(contentSliderArray.getItemAt(k).isImageSliderActive()){
-																contentSliderArray.getItemAt(k).imageContentSlider.y = contentSliderArray.getItemAt(k).imageContentSlider.y + 8;
-															}
-															if(contentSliderArray.getItemAt(k).isTextSliderActive()){
-																contentSliderArray.getItemAt(k).textContentSlider.y = contentSliderArray.getItemAt(k).textContentSlider.y + 8;
-															}
+												//acerta posicionamento das barras posteriores
+												if(contentSliderArray.getItemAt(j).isTextSliderActive()){
+													//trace("situacao " + contentSliderArray.getItemAt(j).isTextSliderActive() + " r:" + j);
+													//trace("verificou e viu que ja tem barra desenhada");
+													contentSliderArray.getItemAt(j).textContentSlider.y = contentSliderArray.getItemAt(j).textContentSlider.y + 8;
+													for(k = j+1; k < contentSliderArray.length; k++){
+														contentSliderArray.getItemAt(k).mainContentSlider.y = contentSliderArray.getItemAt(k).mainContentSlider.y + 8;
+														contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y + 8;
+														if(contentSliderArray.getItemAt(k).isImageSliderActive()){
+															contentSliderArray.getItemAt(k).imageContentSlider.y = contentSliderArray.getItemAt(k).imageContentSlider.y + 8;
+														}
+														if(contentSliderArray.getItemAt(k).isTextSliderActive()){
+															contentSliderArray.getItemAt(k).textContentSlider.y = contentSliderArray.getItemAt(k).textContentSlider.y + 8;
 														}
 													}
-													else{
-														for(r = j+1; r < contentSliderArray.length; r++){
-															contentSliderArray.getItemAt(r).mainContentSlider.y = contentSliderArray.getItemAt(r).mainContentSlider.y + 8;
-															contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y + 8;
-															if(contentSliderArray.getItemAt(r).isImageSliderActive()){
-																trace("tem barra desenhada " + r);
-																contentSliderArray.getItemAt(r).imageContentSlider.y = contentSliderArray.getItemAt(r).imageContentSlider.y + 8;
+												}
+												else{
+													for(r = j+1; r < contentSliderArray.length; r++){
+														contentSliderArray.getItemAt(r).mainContentSlider.y = contentSliderArray.getItemAt(r).mainContentSlider.y + 8;
+														contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y + 8;
+														if(contentSliderArray.getItemAt(r).isImageSliderActive()){
+															contentSliderArray.getItemAt(r).imageContentSlider.y = contentSliderArray.getItemAt(r).imageContentSlider.y + 8;
+														}
+														if(contentSliderArray.getItemAt(r).isTextSliderActive()){
+															contentSliderArray.getItemAt(r).textContentSlider.y = contentSliderArray.getItemAt(r).textContentSlider.y + 8;
+														}
+													}
+												}
+												
+												///////
+												contentSliderArray.getItemAt(j).imageContentSlider = imageSlider;
+												///////
+												imageSlider.validateProperties();
+												
+												imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
+												imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
+												imageSlider.validateProperties();									
+												
+												j++ //incrementa j para continuar o percurso pelo array de barras
+											}
+											//trace("depois do while");
+											
+											//desenha ultima barra acertando posicionamento
+											if(!contentSliderArray.getItemAt(j).isImageSliderActive()){
+												trace("nao tem barrinha ainda");
+												imageSlider = new MultiThumbHSlider();	
+												imageSlider.isImageContentSlider = true;
+												dataProvider = new ArrayCollection();
+												colorsArray = new Array();
+												imageSlider.accentColors = ["0xFFFFFF"];
+												imageSlider.showTrackHighlight = true;
+												imageSlider.left = contentSliderArray.getItemAt(j).mainContentSlider.left;
+												imageSlider.right = contentSliderArray.getItemAt(j).mainContentSlider.right;
+												imageSlider.y = contentSliderArray.getItemAt(j).mainContentSlider.y + 15;
+												imageSlider.width = 678;
+												imageSlider.height = 12;	
+												imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
+												imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
+											}
+											else{
+												contentSliderArray.getItemAt(j).imageContentSlider.accentColors = ["0xFFFFFF"];
+												colorsArray = new Array();
+												dataProvider = new ArrayCollection();
+											}
+											
+											dataObject = new Object();
+											dataObject.value = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
+											dataObject.fixedValue = true;
+											dataObject.label = "";
+											dataProvider.addItem(dataObject);
+											
+											dataObject = new Object();
+											dataObject.value = imageContent.imageEndTime;
+											dataObject.fixedValue = true;
+											dataObject.label = imageLabel + imageLabelCounter;
+											dataProvider.addItem(dataObject);
+											
+											if(contentSliderArray.getItemAt(j).isImageSliderActive()){
+												for(t = 1; t < contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.length; t++){
+													dataProvider.addItem(contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.getItemAt(t));
+													//trace("valores " + contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t).value);
+												}	
+											}
+											else{
+												//uso somente se a barra a ser inserida é nova 
+												trace("inseriu max da barra");
+												dataObject = new Object();
+												dataObject.value = imageSlider.maximum;
+												dataObject.fixedValue = true;
+												dataObject.label = "";
+												dataProvider.addItem(dataObject);
+											}
+											
+											//inserir normal
+											for(k = 0; k < dataProvider.length; k++){							
+												if(dataProvider.getItemAt(k).label != ""){
+													//trace("verde");
+													colorsArray.push("0x808000");  //olive						
+												}
+												else{
+													//trace("branco"); 
+													colorsArray.push("0xFFFFFF"); //branco
+													//colorsArray.push("0xBEBEBE"); //cinzaclaro
+												}							
+											}
+											
+											if(contentSliderArray.getItemAt(j).isImageSliderActive()){
+												contentSliderArray.getItemAt(j).imageContentSlider.dataProvider = dataProvider;
+												contentSliderArray.getItemAt(j).imageContentSlider.accentColors = colorsArray;
+											}
+											else{
+												//trace("ok");
+												imageSlider.dataProvider = dataProvider;
+												imageSlider.accentColors = colorsArray;
+											}
+											
+											if(contentSliderArray.getItemAt(j).isImageSliderActive()){
+												silenceBarsContainer.addElement(contentSliderArray.getItemAt(j).imageContentSlider);
+												contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.validateProperties();						
+												contentSliderArray.getItemAt(j).imageContentSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
+												contentSliderArray.getItemAt(j).imageContentSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
+												contentSliderArray.getItemAt(j).imageContentSlider.validateProperties();
+												finish = true;
+											}
+											else{
+												//acerta posicao das barrinhas posteriores a que foi inserida
+												j = activeTracker;								
+												trace("activeTracker: " + activeTracker);
+												if(contentSliderArray.getItemAt(j).isTextSliderActive()){
+													trace("entrou qndo tem texto");
+													contentSliderArray.getItemAt(j).textContentSlider.y = contentSliderArray.getItemAt(j).textContentSlider.y + 8;
+													for(k = j+1; k < contentSliderArray.length; k++){
+														contentSliderArray.getItemAt(k).mainContentSlider.y = contentSliderArray.getItemAt(k).mainContentSlider.y + 8;
+														contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y + 8;
+														if(contentSliderArray.getItemAt(k).isImageSliderActive()){
+															contentSliderArray.getItemAt(k).imageContentSlider.y = contentSliderArray.getItemAt(k).imageContentSlider.y + 8;
+														}
+														if(contentSliderArray.getItemAt(k).isTextSliderActive()){
+															contentSliderArray.getItemAt(k).textContentSlider.y = contentSliderArray.getItemAt(k).textContentSlider.y + 8;
+														}
+													}
+												}
+												else{
+													for(r = j+1; r < contentSliderArray.length; r++){
+														contentSliderArray.getItemAt(r).mainContentSlider.y = contentSliderArray.getItemAt(r).mainContentSlider.y + 8;
+														contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y + 8;
+														if(contentSliderArray.getItemAt(r).isImageSliderActive()){
+															trace("tem barra desenhada " + r);
+															contentSliderArray.getItemAt(r).imageContentSlider.y = contentSliderArray.getItemAt(r).imageContentSlider.y + 8;
+														}
+														if(contentSliderArray.getItemAt(r).isTextSliderActive()){
+															trace("entrou onde eu queria testar");
+															contentSliderArray.getItemAt(r).textContentSlider.y = contentSliderArray.getItemAt(r).textContentSlider.y + 8;
+														}
+													}
+												}								
+												
+												silenceBarsContainer.addElement(imageSlider);
+												elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(imageSlider));
+												///////
+												contentSliderArray.getItemAt(j).imageContentSlider = imageSlider;
+												///////
+												imageSlider.validateProperties();
+												
+												imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
+												imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
+												imageSlider.validateProperties();
+												finish = true;
+											}
+										}
+										//tratar caso em que ja existe conteudo de imagem na barra
+										else{
+											trace("entrou no caso que ja existe conteudo de imagem na barra");
+											//contentSliderArray.getItemAt(i).imageContentSlider.accentColors = ["0xFFFFFF"];
+											
+											//var finishDraw:Boolean = false;
+											//var test:Boolean = false;
+											//var found:Boolean = false;
+											colorsArray = new Array();
+											dataProvider = new ArrayCollection();
+											
+											for(k = 1; k < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length; k++){
+												if(imageContent.imageBeginTime > contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(k).value){
+													trace("passou na condicao 1 caso2");
+													j = i;
+													//trace("j " + j + ", activeTracker " + activeTracker);
+													if(j != activeTracker){
+														j++;
+														//trace("j != activeTracker" + "  tamanhoArray " + contentSliderArray.length);
+														while(j <= activeTracker+1 && j < contentSliderArray.length && !found){
+															//trace("valor de j " + j);
+															if(contentSliderArray.getItemAt(j).isImageSliderActive()){
+																for(t = 1; t < contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.length; t++){
+																	//trace("ativo? " + contentSliderArray.getItemAt(j).isImageSliderActive());
+																	if(!found){
+																		if(imageContent.imageEndTime < contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.getItemAt(t).value){
+																			//trace("entrou no teste");
+																			test = true;
+																			found = true;
+																		}
+																		else{
+																			//trace("test=false");
+																			test = false;
+																		}
+																	}
+																}																												
+																j++;
 															}
-															if(contentSliderArray.getItemAt(r).isTextSliderActive()){
-																contentSliderArray.getItemAt(r).textContentSlider.y = contentSliderArray.getItemAt(r).textContentSlider.y + 8;
+															else{														
+																j++;
+																test = true;
+															}														
+														}
+													}
+												}
+											}
+											trace("valor final do teste " + test);
+											if(test){
+												if(!finish){
+													//insere valores ja colocados na barra anteriormente
+													for(t = 0; t < contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.length - 1; t++){
+														dataProvider.addItem(contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t));
+														//trace("valores " + contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t).value);
+													}
+													
+													dataObject = new Object();
+													dataObject.value = imageContent.imageBeginTime;
+													dataObject.fixedValue = true;
+													dataObject.label = "";
+													dataProvider.addItem(dataObject);
+													
+													dataObject = new Object();
+													dataObject.value = imageContent.imageEndTime;
+													dataObject.fixedValue = true;
+													dataObject.label = imageLabel + imageLabelCounter;
+													dataProvider.addItem(dataObject);
+													
+													dataObject = new Object();
+													dataObject.value = contentSliderArray.getItemAt(i).imageContentSlider.maximum;
+													dataObject.fixedValue = true;
+													dataObject.label = imageLabel + imageLabelCounter;
+													dataProvider.addItem(dataObject);										
+													
+													//inserir normal
+													for(k = 0; k < dataProvider.length; k++){							
+														if(dataProvider.getItemAt(k).label != ""){
+															//trace("verde");
+															colorsArray.push("0x808000");  //olive						
+														}
+														else{
+															//trace("branco"); 
+															colorsArray.push("0xFFFFFF"); //branco
+															//colorsArray.push("0xBEBEBE"); //cinzaclaro
+														}							
+													}
+													contentSliderArray.getItemAt(i).imageContentSlider.dataProvider = dataProvider;
+													contentSliderArray.getItemAt(i).imageContentSlider.accentColors = colorsArray;
+													
+													silenceBarsContainer.addElement(contentSliderArray.getItemAt(i).imageContentSlider);
+													
+													contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.validateProperties();						
+													contentSliderArray.getItemAt(i).imageContentSlider.minimum = contentSliderArray.getItemAt(i).mainContentSlider.minimum;
+													contentSliderArray.getItemAt(i).imageContentSlider.maximum = contentSliderArray.getItemAt(i).mainContentSlider.maximum;
+													contentSliderArray.getItemAt(i).imageContentSlider.validateProperties();
+													
+													j = i;
+													j++;
+													//loop para desenhara barras intermediarias menos a ultima
+													while(j < contentSliderArray.length && imageContent.imageEndTime > contentSliderArray.getItemAt(j).mainContentSlider.maximum){
+														//desenha barras intermediarias
+														trace("entrou no while pilantra");
+														imageSlider = new MultiThumbHSlider();	
+														imageSlider.isImageContentSlider = true;
+														dataProvider = new ArrayCollection();
+														colorsArray = new Array();
+														imageSlider.accentColors = ["0xFFFFFF"];
+														imageSlider.showTrackHighlight = true;
+														imageSlider.left = contentSliderArray.getItemAt(j).mainContentSlider.left;
+														imageSlider.right = contentSliderArray.getItemAt(j).mainContentSlider.right;
+														imageSlider.y = contentSliderArray.getItemAt(j).mainContentSlider.y + 15;
+														imageSlider.width = 678;
+														imageSlider.height = 12;	
+														imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
+														imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
+														
+														dataObject = new Object();
+														dataObject.value = imageSlider.minimum;
+														dataObject.fixedValue = true;
+														dataObject.label = imageLabel + imageLabelCounter;
+														dataProvider.addItem(dataObject);
+														
+														dataObject = new Object();
+														dataObject.value = imageSlider.maximum;
+														dataObject.fixedValue = true;
+														dataObject.label = imageLabel + imageLabelCounter;
+														dataProvider = new ArrayCollection();
+														dataProvider.addItem(dataObject);
+														colorsArray = new Array();
+														
+														for(k= 0; k < dataProvider.length; k++){							
+															if(dataProvider.getItemAt(k).label != ""){
+																//trace("verde");
+																colorsArray.push("0x808000");  //olive					
+															}
+															else{
+																//trace("branco");
+																colorsArray.push("0xFFFFFF"); //branco							
+															}							
+														}
+														imageSlider.dataProvider = dataProvider;
+														imageSlider.accentColors = colorsArray;
+														silenceBarsContainer.addElement(imageSlider);
+														elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(imageSlider));
+														
+														if(contentSliderArray.getItemAt(j).isTextSliderActive()){
+															//trace("situacao " + contentSliderArray.getItemAt(j).isImageSliderActive() + " r:" + j);
+															//trace("verificou e viu que ja tem barra desenhada");
+															contentSliderArray.getItemAt(j).textContentSlider.y = contentSliderArray.getItemAt(j).textContentSlider.y + 8;
+															for(k = j+1; k < contentSliderArray.length; k++){
+																contentSliderArray.getItemAt(k).mainContentSlider.y = contentSliderArray.getItemAt(k).mainContentSlider.y + 8;
+																contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y + 8;
+																if(contentSliderArray.getItemAt(k).isImageSliderActive()){
+																	contentSliderArray.getItemAt(k).imageContentSlider.y = contentSliderArray.getItemAt(k).imageContentSlider.y + 8;
+																}
+																if(contentSliderArray.getItemAt(k).isTextSliderActive()){
+																	contentSliderArray.getItemAt(k).textContentSlider.y = contentSliderArray.getItemAt(k).textContentSlider.y + 8;
+																}
 															}
 														}
-													}					
+														else{
+															for(r = j+1; r < contentSliderArray.length; r++){
+																contentSliderArray.getItemAt(r).mainContentSlider.y = contentSliderArray.getItemAt(r).mainContentSlider.y + 8;
+																contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y + 8;
+																if(contentSliderArray.getItemAt(r).isImageSliderActive()){
+																	contentSliderArray.getItemAt(r).imageContentSlider.y = contentSliderArray.getItemAt(r).imageContentSlider.y + 8;
+																}
+																if(contentSliderArray.getItemAt(k).isTextSliderActive()){
+																	contentSliderArray.getItemAt(k).textContentSlider.y = contentSliderArray.getItemAt(k).textContentSlider.y + 8;
+																}
+															}
+														}
+														
+														///////
+														contentSliderArray.getItemAt(j).imageContentSlider = imageSlider;
+														///////
+														imageSlider.validateProperties();
+														
+														imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
+														imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
+														imageSlider.validateProperties();									
+														
+														j++ //incrementa j para continuar o percurso pelo array de barras*/
+													}
 													
-													silenceBarsContainer.addElement(imageSlider);
-													///////
-													contentSliderArray.getItemAt(j).imageContentSlider = imageSlider;
-													///////
-													imageSlider.validateProperties();
+													//trace("depois do while");
+													//desenha ultima barra acertando posicionamento
+													if(!contentSliderArray.getItemAt(j).isImageSliderActive()){
+														trace("nao tem barrinha ainda");
+														imageSlider = new MultiThumbHSlider();	
+														imageSlider.isImageContentSlider = true;
+														dataProvider = new ArrayCollection();
+														colorsArray = new Array();
+														imageSlider.accentColors = ["0xFFFFFF"];
+														imageSlider.showTrackHighlight = true;
+														imageSlider.left = contentSliderArray.getItemAt(j).mainContentSlider.left;
+														imageSlider.right = contentSliderArray.getItemAt(j).mainContentSlider.right;
+														imageSlider.y = contentSliderArray.getItemAt(j).mainContentSlider.y + 15;
+														imageSlider.width = 678;
+														imageSlider.height = 12;	
+														imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
+														imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
+													}
+													else{
+														contentSliderArray.getItemAt(j).imageContentSlider.accentColors = ["0xFFFFFF"];
+														colorsArray = new Array();
+														dataProvider = new ArrayCollection();
+													}
+																						
+													dataObject = new Object();
+													dataObject.value = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
+													dataObject.fixedValue = true;
+													dataObject.label = "";
+													dataProvider.addItem(dataObject);
 													
-													imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
-													imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
-													imageSlider.validateProperties();
-													finish = true;
+													dataObject = new Object();
+													dataObject.value = imageContent.imageEndTime;
+													dataObject.fixedValue = true;
+													dataObject.label = imageLabel + imageLabelCounter;
+													dataProvider.addItem(dataObject);
+													
+													if(contentSliderArray.getItemAt(j).isImageSliderActive()){
+														for(t = 1; t < contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.length; t++){
+															dataProvider.addItem(contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.getItemAt(t));
+															//trace("valores " + contentSliderArray.getItemAt(i).imageContentSlider.dataProvider.getItemAt(t).value);
+														}	
+													}
+													else{
+														//uso somente se a barra a ser inserida é nova 
+														trace("inseriu max da barra");
+														dataObject = new Object();
+														dataObject.value = imageSlider.maximum;
+														dataObject.fixedValue = true;
+														dataObject.label = "";
+														dataProvider.addItem(dataObject);
+													}
+													
+													//inserir normal
+													for(k = 0; k < dataProvider.length; k++){							
+														if(dataProvider.getItemAt(k).label != ""){
+															//trace("verde");
+															colorsArray.push("0x808000");  //olive					
+														}
+														else{
+															//trace("branco"); 
+															colorsArray.push("0xFFFFFF"); //branco
+															//colorsArray.push("0xBEBEBE"); //cinzaclaro
+														}							
+													}
+													
+													if(contentSliderArray.getItemAt(j).isImageSliderActive()){
+														contentSliderArray.getItemAt(j).imageContentSlider.dataProvider = dataProvider;
+														contentSliderArray.getItemAt(j).imageContentSlider.accentColors = colorsArray;
+													}
+													else{
+														//trace("ok");
+														imageSlider.dataProvider = dataProvider;
+														imageSlider.accentColors = colorsArray;
+													}
+													
+													if(contentSliderArray.getItemAt(j).isImageSliderActive()){
+														silenceBarsContainer.addElement(contentSliderArray.getItemAt(j).imageContentSlider);
+														contentSliderArray.getItemAt(j).imageContentSlider.dataProvider.validateProperties();						
+														contentSliderArray.getItemAt(j).imageContentSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
+														contentSliderArray.getItemAt(j).imageContentSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
+														contentSliderArray.getItemAt(j).imageContentSlider.validateProperties();
+														finish = true;
+													}
+													else{
+														//acertar posicao das barrinhas
+														j = activeTracker;								
+														trace("activeTracker: " + activeTracker);
+														if(contentSliderArray.getItemAt(j).isTextSliderActive()){
+															trace("entrou qndo tem texto");
+															contentSliderArray.getItemAt(j).textContentSlider.y = contentSliderArray.getItemAt(j).textContentSlider.y + 8;
+															for(k = j+1; k < contentSliderArray.length; k++){
+																contentSliderArray.getItemAt(k).mainContentSlider.y = contentSliderArray.getItemAt(k).mainContentSlider.y + 8;
+																contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(k).mainContentSlider.sliderTracker.y + 8;
+																if(contentSliderArray.getItemAt(k).isImageSliderActive()){
+																	contentSliderArray.getItemAt(k).imageContentSlider.y = contentSliderArray.getItemAt(k).imageContentSlider.y + 8;
+																}
+																if(contentSliderArray.getItemAt(k).isTextSliderActive()){
+																	contentSliderArray.getItemAt(k).textContentSlider.y = contentSliderArray.getItemAt(k).textContentSlider.y + 8;
+																}
+															}
+														}
+														else{
+															for(r = j+1; r < contentSliderArray.length; r++){
+																contentSliderArray.getItemAt(r).mainContentSlider.y = contentSliderArray.getItemAt(r).mainContentSlider.y + 8;
+																contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y = contentSliderArray.getItemAt(r).mainContentSlider.sliderTracker.y + 8;
+																if(contentSliderArray.getItemAt(r).isImageSliderActive()){
+																	trace("tem barra desenhada " + r);
+																	contentSliderArray.getItemAt(r).imageContentSlider.y = contentSliderArray.getItemAt(r).imageContentSlider.y + 8;
+																}
+																if(contentSliderArray.getItemAt(r).isTextSliderActive()){
+																	contentSliderArray.getItemAt(r).textContentSlider.y = contentSliderArray.getItemAt(r).textContentSlider.y + 8;
+																}
+															}
+														}					
+														
+														silenceBarsContainer.addElement(imageSlider);
+														elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(imageSlider));
+														///////
+														contentSliderArray.getItemAt(j).imageContentSlider = imageSlider;
+														///////
+														imageSlider.validateProperties();
+														
+														imageSlider.minimum = contentSliderArray.getItemAt(j).mainContentSlider.minimum;
+														imageSlider.maximum = contentSliderArray.getItemAt(j).mainContentSlider.maximum;
+														imageSlider.validateProperties();
+														finish = true;
+													}
 												}
 											}
 										}
 									}
 								}
 							}
-						}
-					}						
+						}						
+					}
+					
+					if(finish){
+						//salva objeto atual antes de limpar variaveis
+						var originalFile:File = new File(imagePath.text);
+						var fs:FileStream = new FileStream();
+						var bytes:ByteArray = new ByteArray();	
+						fs.open(originalFile, FileMode.READ);
+						fs.readBytes(bytes);					
+						
+						//copia imagem original para a pasta do projeto
+						var imageFile:File;
+						var imageType1:int = imagePath.text.indexOf(".bmp",0);
+						var imageType2:int = imagePath.text.indexOf(".png",0);
+						var imageType3:int = imagePath.text.indexOf(".gif",0);
+						var imageType4:int = imagePath.text.indexOf(".jpg",0);
+						var imageType5:int = imagePath.text.indexOf(".jpeg",0);
+						var imageDefinition:String = "AuthoringTool_projects/" + projectName_textInput.text + "/NCL/media/image/image";						
+						if(imageType1 != -1 || imageType2 != -1 || imageType3 != -1 || imageType4 != -1 || imageType5 != -1){
+							if(imageType1 != -1){
+								imageFile = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter.toString() + ".bmp");
+								imageContent.imagePath = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter.toString() + ".bmp").nativePath;
+							}
+							if(imageType2 != -1){
+								imageFile = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter.toString() + ".png");
+								imageContent.imagePath = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter.toString() + ".png").nativePath;
+							}
+							if(imageType3 != -1){
+								imageFile = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter.toString() + ".gif");
+								imageContent.imagePath = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter.toString() + ".gif").nativePath;
+							}
+							if(imageType4 != -1){
+								imageFile = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter.toString() + ".jpg");
+								imageContent.imagePath = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter.toString() + ".jpg").nativePath;
+							}
+							if(imageType5 != -1){
+								imageFile = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter.toString() + ".jpeg");
+								imageContent.imagePath = File.documentsDirectory.resolvePath(imageDefinition + imageLabelCounter.toString() + ".jpeg").nativePath;
+							}						
+						}	
+						
+						var fileStream:FileStream = new FileStream(); 
+						fileStream.open(imageFile, FileMode.WRITE);
+						fileStream.writeBytes(bytes);					
+						fileStream.close();						
+						
+						imageContent.positionX = myimg.x;
+						imageContent.positionY = myimg.y;
+						imageContent.imageWidth = myimg.width;
+						imageContent.imageHeight = myimg.height;
+						imageContent.imageId = "image" + imageLabelCounter.toString();						
+						
+						/* acerta infos que descrevem os dispositivos que irão receber a midia de imagem*/
+						if(showImageOnTv.selected)
+							imageContent.imageOnTv = true;					
+						else
+							imageContent.imageOnTv = false;
+						
+						if(showImageOnMobile.selected)
+							imageContent.imageOnMobile = true;
+						else
+							imageContent.imageOnMobile = false;
+						
+						allContentInfo.addItem(imageContent);
+						imageContent = new ImageContent(); 	//cria novo objeto para ficar disponivel para receber novas info					
+																
+						//zera todas as variáveis
+						imageEditionContainer.visible = false;
+						barsContainer_label.visible = true;
+						imageBegin.text = "";
+						imageEnd.text = "";
+						imagePath.text = "";						
+						imageSelection.visible = false;
+						okImageSelection.visible = false;
+						finishImageEdition.visible = false;
+						showImageOnMobile.visible = false;
+						showImageOnTv.visible = false;
+						myimg.source = " ";
+						imageDragArea.visible = false;
+						pictureControls.visible = false;
+						volta.visible = false;
+						xmlContent_button.visible = true;
+						imageLabelCounter++;
+						addEventListener("labelClicked", imageIntervalSelected);	//listener para edição da imagem caso o intervalo seja selecionado posteriormente
+					}
+					else{
+						Alert.show("Não é possível inserir conteúdo no intervalo especificado!");
+						imageEditionContainer.visible = false;
+						barsContainer_label.visible = true;
+						imageBegin.text = "";
+						imageEnd.text = "";
+						imagePath.text = "";
+						imageSelection.visible = false;
+						okImageSelection.visible = false;
+						finishImageEdition.visible = false;
+						showImageOnTv.visible = false;
+						showImageOnMobile.visible = false;
+						myimg.source = "";
+						imageDragArea.visible = false;
+						pictureControls.visible = false;
+					}
 				}
-				
-				if(finish){
-					//salva objeto atual antes de limpar variaveis
-					imageContent.positionX = myimg.x;
-					imageContent.positionY = myimg.y;
-					imageContent.imageWidth = myimg.width;
-					imageContent.imageHeight = myimg.height;
-					imageContent.imageId = "image" + imageLabelCounter.toString();
+				//apenas salva novas configurações de texto já que o intervalo ja esta desenhado
+				else{
+					Alert.show("Conteúdo editado com sucesso!");
 					
-					var originalFile:File = new File(imagePath.text);
-					var fs:FileStream = new FileStream();
-					var bytes:ByteArray = new ByteArray();	
-					fs.open(originalFile, FileMode.READ);
-					fs.readBytes(bytes);
+					/* acerta infos da imagem */
+					allContentInfo.getItemAt(imagePosition).positionX = myimg.x;
+					allContentInfo.getItemAt(imagePosition).positionY = myimg.y;
+					//trace("tamnhos inseridos: " + myimg.width + "  " + myimg.height);
+					allContentInfo.getItemAt(imagePosition).imageWidth  = myimg.width;
+					allContentInfo.getItemAt(imagePosition).imageHeight = myimg.height;	
 					
-					//descobre a extensão da imagem
-					var fileExtension:String = imagePath.text;
-					fileExtension = fileExtension.slice(fileExtension.indexOf("."), fileExtension.length);
-					trace(fileExtension);										
+					myimg.percentHeight = 100;
+					myimg.percentWidth = 100;
+					allContentInfo.getItemAt(imagePosition).original_imageWidth = myimg.contentWidth;
+					allContentInfo.getItemAt(imagePosition).original_imageHeight = myimg.contentHeight;
+					//trace("tamanhos originais da imagem: " + myimg.contentWidth + "  " +myimg.contentHeight);
+										
+					//descobrir extensão da imagem, copiar para pasta do projeto e setar imageContent.imageData							
+					if(imagePath.text != allContentInfo.getItemAt(imagePosition).imagePath){
+						//trace("mudou parametros");
+						originalFile = new File(imagePath.text);
+						allContentInfo.getItemAt(imagePosition).original_imageWidth = myimg.contentWidth;
+						allContentInfo.getItemAt(imagePosition).original_imageHeight = myimg.contentHeight;
+						imageType1 = imagePath.text.indexOf(".bmp",0);
+						imageType2 = imagePath.text.indexOf(".png",0);
+						imageType3 = imagePath.text.indexOf(".gif",0);
+						imageType4 = imagePath.text.indexOf(".jpg",0);
+						imageType5 = imagePath.text.indexOf(".jpeg",0);
+						imageDefinition = "AuthoringTool_projects/" + projectName_textInput.text + "/NCL/media/image/";
+						//trace("id atual: " + allContentInfo.getItemAt(imagePosition).imageId);
+						if(imageType1 != -1 || imageType2 != -1 || imageType3 != -1 || imageType4 != -1 || imageType5 != -1){
+							if(imageType1 != -1){
+								allContentInfo.getItemAt(imagePosition).imageSource = "media/image/" + allContentInfo.getItemAt(imagePosition).imageId + ".bmp";
+								var copyFile:File = File.documentsDirectory.resolvePath(imageDefinition + allContentInfo.getItemAt(imagePosition).imageId + ".bmp");
+								allContentInfo.getItemAt(imagePosition).imagePath = File.documentsDirectory.resolvePath(imageDefinition + allContentInfo.getItemAt(imagePosition).imageId + ".bmp").nativePath;
+								originalFile.copyToAsync(copyFile, true);
+							}
+							if(imageType2 != -1){
+								allContentInfo.getItemAt(imagePosition).imageSource = "media/image/" + allContentInfo.getItemAt(imagePosition).imageId + ".png";
+								copyFile = File.documentsDirectory.resolvePath(imageDefinition + allContentInfo.getItemAt(imagePosition).imageId + ".png");
+								allContentInfo.getItemAt(imagePosition).imagePath = File.documentsDirectory.resolvePath(imageDefinition + allContentInfo.getItemAt(imagePosition).imageId + ".png").nativePath;
+								originalFile.copyToAsync(copyFile, true);
+							}
+							if(imageType3 != -1){
+								allContentInfo.getItemAt(imagePosition).imageSource = "media/image/" + allContentInfo.getItemAt(imagePosition).imageId + ".gif";
+								copyFile = File.documentsDirectory.resolvePath(imageDefinition + allContentInfo.getItemAt(imagePosition).imageId + ".gif");
+								allContentInfo.getItemAt(imagePosition).imagePath = File.documentsDirectory.resolvePath(imageDefinition + allContentInfo.getItemAt(imagePosition).imageId + ".gif").nativePath;
+								originalFile.copyToAsync(copyFile, true);
+							}
+							if(imageType4 != -1){
+								allContentInfo.getItemAt(imagePosition).imageSource = "media/image/" + allContentInfo.getItemAt(imagePosition).imageId + ".jpg";
+								copyFile = File.documentsDirectory.resolvePath(imageDefinition + allContentInfo.getItemAt(imagePosition).imageId + ".jpg");
+								allContentInfo.getItemAt(imagePosition).imagePath = File.documentsDirectory.resolvePath(imageDefinition + allContentInfo.getItemAt(imagePosition).imageId + ".jpg").nativePath;
+								originalFile.copyToAsync(copyFile, true);
+							}
+							if(imageType5 != -1){
+								allContentInfo.getItemAt(imagePosition).imageSource = "media/image/" + allContentInfo.getItemAt(imagePosition).imageId + ".jpeg";
+								copyFile = File.documentsDirectory.resolvePath(imageDefinition + allContentInfo.getItemAt(imagePosition).imageId + ".jpeg");
+								allContentInfo.getItemAt(imagePosition).imagePath = File.documentsDirectory.resolvePath(imageDefinition + allContentInfo.getItemAt(imagePosition).imageId + ".jpeg").nativePath;
+								originalFile.copyToAsync(copyFile, true);
+							}						
+						}
+					}
 					
-					//copia imagem original para a pasta do projeto
-					var imageFile:File = File.documentsDirectory.resolvePath("AuthoringTool_projects/" + projectName_textInput.text +
-																				"/NCL/media/image/image" + imageLabelCounter.toString() + fileExtension);
-					var fileStream:FileStream = new FileStream(); 
-					fileStream.open(imageFile, FileMode.WRITE);
-					fileStream.writeBytes(bytes);					
-					fileStream.close();
-					
-					/* acerta infos que descrevem os dispositivos que irão receber a midia de imagem*/
+					/* acerta infos que descrevem os dispositivos que irão receber a midia de texto*/
 					if(showImageOnTv.selected)
-						imageContent.imageOnTv = true;					
+						allContentInfo.getItemAt(imagePosition).imageOnTv = true;					
 					else
-						imageContent.imageOnTv = false;
+						allContentInfo.getItemAt(imagePosition).imageOnTv = false;
 					
 					if(showImageOnMobile.selected)
-						imageContent.imageOnMobile = true;
+						allContentInfo.getItemAt(imagePosition).imageOnMobile = true;
 					else
-						imageContent.imageOnMobile = false;
+						allContentInfo.getItemAt(imagePosition).imageOnMobile = false;						
 					
-					allContentInfo.addItem(imageContent);
-					imageContent = new ImageContent(); 	//cria novo objeto para ficar disponivel para receber novas info					
-															
-					//zera todas as variáveis
-					imageEditionContainer.visible = false;
-					barsContainer_label.visible = true;
-					imageBegin.text = "";
-					imageEnd.text = "";
-					imagePath.text = "";
-					imageSelection.visible = false;
-					okImageSelection.visible = false;
-					finishImageEdition.visible = false;
-					showImageOnMobile.visible = false;
-					showImageOnTv.visible = false;
-					myimg.source = "";
-					imageDragArea.visible = false;
-					pictureControls.visible = false;
-					volta.visible = false;
-					xmlContent_button.visible = true;
-					imageLabelCounter++;
-					//addEventListener("labelClicked", textIntervalSelected);	listener para edição da imagem caso o intervalo seja selecionado posteriormente
-				}
-				else{
-					Alert.show("Não é possível inserir conteúdo no intervalo especificado!");
+					//zera todas as variáveis 
 					imageEditionContainer.visible = false;
 					barsContainer_label.visible = true;
 					imageBegin.text = "";
@@ -3647,10 +3855,59 @@
 					finishImageEdition.visible = false;
 					showImageOnTv.visible = false;
 					showImageOnMobile.visible = false;
-					myimg.source = "";
+					myimg.source = "";					
 					imageDragArea.visible = false;
-					pictureControls.visible = false;
+					pictureControls.visible = false;					
 				}
+			}
+			
+			//handler de edição de conteudo complementar de imagem
+			private function imageIntervalSelected(event:MouseEventWithInfo):void{						
+				var imageLabelSelected:String = event.getInfo();
+				trace("Valor do label " + event.getInfo());	
+				
+				for(var i:int = 0; i < allContentInfo.length; i++){
+					trace(allContentInfo.getItemAt(i));
+					if(allContentInfo.getItemAt(i) is ImageContent){
+						if(allContentInfo.getItemAt(i).imageId == imageLabelSelected){
+							//trace("encontrou");	
+							imageEditionContainer.visible = true;
+							barsContainer_label.visible = false;
+							imageBegin.text = formatTimeValue(parseFloat(allContentInfo.getItemAt(i).imageBeginTime));
+							imageEnd.text = formatTimeValue(parseFloat(allContentInfo.getItemAt(i).imageEndTime));
+							imageBegin.removeEventListener(MouseEvent.CLICK, imageBeginTimeClick_handler);
+							imageEnd.removeEventListener(MouseEvent.CLICK, imageEndTimeClick_handler);
+							imagePath.visible = true;
+							imagePath.text = allContentInfo.getItemAt(i).imagePath;							
+							imageSelection.visible = true;						
+							imageBegin.editable = false;
+							imageEnd.editable = false;
+							finishImageEdition.visible = true;						
+							showImageOnMobile.visible = true;
+							showImageOnTv.visible = true;
+							
+							imageDragArea.visible = true;
+							myimg.visible = true;
+							myimg.source = allContentInfo.getItemAt(i).imagePath;							
+							myimg.addEventListener(Event.COMPLETE, function(e:Event):void{imageSelectionLoaded(i);});								
+							myimg.x = parseFloat(((allContentInfo.getItemAt(i).positionX * 520)/100).toFixed(0));
+							myimg.y = parseFloat(((allContentInfo.getItemAt(i).positionY * 340)/100).toFixed(0));
+							myimg.width = allContentInfo.getItemAt(i).width_toolRelative;
+							myimg.height = allContentInfo.getItemAt(i).height_toolRelative;	
+							break;
+						}						
+					}
+				}			
+			}
+			
+			//metodo criado para carregar a imagem já inserida corretamente 
+			private function imageSelectionLoaded(i:int):void{
+				myimg.percentHeight = 100;
+				myimg.percentWidth = 100;							
+				allContentInfo.getItemAt(i).original_imageWidth = myimg.contentWidth;
+				allContentInfo.getItemAt(i).original_imageHeight = myimg.contentHeight;							
+				myimg.width = allContentInfo.getItemAt(i).width_toolRelative;
+				myimg.height = allContentInfo.getItemAt(i).height_toolRelative;			
 			}
 			/* ********************************************************************************************************** */
 
@@ -3757,18 +4014,27 @@
 			}
 			
 			private function cancelTextEdition_handler(event:MouseEvent):void{
-				textEditionComponent.visible = false;
-				finishTextEdition.visible = false;
-				//textView.visible = false;
+												
+				//zera todas as variáveis 
+				showTextOnTv.visible = false;
+				showTextOnMobile.visible = false;
 				textEditionContainer.visible = false;
 				barsContainer_label.visible = true;
-				templateTextArea.visible = false;
-				templateTextLabel.visible = false;
-				templateTextCheckBox.visible = false;
+				viewTemplateText_button.visible = false;
 				textBegin.text = "";
 				textEnd.text = "";
-				textEdited.htmlText = "";
-				textEdited.visible = false;
+				finishTextEdition.visible = false;
+				//textView.visible = false;
+				textEditionComponent.text = "";
+				textEditionComponent.visible = false;
+				textEdited.text = "";
+				textDragArea.visible = false;
+				templateTextArea.visible = false;
+				templateTextCheckBox.visible = false;
+				templateTextLabel.visible = false;								
+				templateTextCheckBox.selected = false;
+				textEditionComponent.visible = false;
+				finishTextEdition.visible = false;		
 			}
 			
 			private function textView_handler(event:MouseEvent):void{				
@@ -3984,7 +4250,8 @@
 									textSlider.isTextContentSlider = true;
 									textSlider.accentColors = ["0xFFFFFF"];
 									textSlider.showTrackHighlight = true;
-									textSlider.x = contentSliderArray.getItemAt(i).mainContentSlider.x;
+									textSlider.left = contentSliderArray.getItemAt(i).mainContentSlider.left;
+									textSlider.right = contentSliderArray.getItemAt(i).mainContentSlider.right;
 									textSlider.y = contentSliderArray.getItemAt(i).mainContentSlider.y + 15;
 									textSlider.width = 680;
 									textSlider.height = 12;	
@@ -4028,6 +4295,7 @@
 									textSlider.dataProvider = dataProvider;
 									textSlider.accentColors = colorsArray;
 									silenceBarsContainer.addElement(textSlider);
+									elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(textSlider));
 									
 									//acerta posicionamento das barras abaixo da inserida
 									if(contentSliderArray.getItemAt(activeTracker).isImageSliderActive()){
@@ -4268,7 +4536,8 @@
 											textSlider.isTextContentSlider = true;
 											textSlider.accentColors = ["0xFFFFFF"];
 											textSlider.showTrackHighlight = true;
-											textSlider.x = contentSliderArray.getItemAt(j).mainContentSlider.x;
+											textSlider.left = contentSliderArray.getItemAt(j).mainContentSlider.left;
+											textSlider.right = contentSliderArray.getItemAt(j).mainContentSlider.right;
 											textSlider.y = contentSliderArray.getItemAt(j).mainContentSlider.y + 15;
 											textSlider.width = 678;
 											textSlider.height = 12;	
@@ -4306,6 +4575,7 @@
 											textSlider.dataProvider = dataProvider;
 											textSlider.accentColors = colorsArray;
 											silenceBarsContainer.addElement(textSlider);
+											elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(textSlider));
 											
 											//acerta posicionamento das barras posteriores a barra inserida
 											if(contentSliderArray.getItemAt(j).isImageSliderActive()){
@@ -4356,7 +4626,8 @@
 												colorsArray = new Array();
 												textSlider.accentColors = ["0xFFFFFF"];
 												textSlider.showTrackHighlight = true;
-												textSlider.x = contentSliderArray.getItemAt(j).mainContentSlider.x;
+												textSlider.left = contentSliderArray.getItemAt(j).mainContentSlider.left;
+												textSlider.right = contentSliderArray.getItemAt(j).mainContentSlider.right;
 												textSlider.y = contentSliderArray.getItemAt(j).mainContentSlider.y + 15;
 												textSlider.width = 678;
 												textSlider.height = 12;	
@@ -4390,6 +4661,7 @@
 												textSlider.dataProvider = dataProvider;
 												textSlider.accentColors = colorsArray;
 												silenceBarsContainer.addElement(textSlider);
+												elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(textSlider));
 												
 												//acerta posicionamento das barras posteriores
 												if(contentSliderArray.getItemAt(j).isImageSliderActive()){
@@ -4442,7 +4714,8 @@
 												colorsArray = new Array();
 												textSlider.accentColors = ["0xFFFFFF"];
 												textSlider.showTrackHighlight = true;
-												textSlider.x = contentSliderArray.getItemAt(j).mainContentSlider.x;
+												textSlider.left = contentSliderArray.getItemAt(j).mainContentSlider.left;
+												textSlider.right = contentSliderArray.getItemAt(j).mainContentSlider.right;
 												textSlider.y = contentSliderArray.getItemAt(j).mainContentSlider.y + 15;
 												textSlider.width = 678;
 												textSlider.height = 12;	
@@ -4547,6 +4820,7 @@
 												}								
 												
 												silenceBarsContainer.addElement(textSlider);
+												elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(textSlider));
 												///////
 												contentSliderArray.getItemAt(j).textContentSlider = textSlider;
 												///////
@@ -4664,7 +4938,8 @@
 														colorsArray = new Array();
 														textSlider.accentColors = ["0xFFFFFF"];
 														textSlider.showTrackHighlight = true;
-														textSlider.x = contentSliderArray.getItemAt(j).mainContentSlider.x;
+														textSlider.left = contentSliderArray.getItemAt(j).mainContentSlider.left;
+														textSlider.right = contentSliderArray.getItemAt(j).mainContentSlider.right;
 														textSlider.y = contentSliderArray.getItemAt(j).mainContentSlider.y + 15;
 														textSlider.width = 678;
 														textSlider.height = 12;	
@@ -4698,6 +4973,7 @@
 														textSlider.dataProvider = dataProvider;
 														textSlider.accentColors = colorsArray;
 														silenceBarsContainer.addElement(textSlider);
+														elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(textSlider));
 														
 														if(contentSliderArray.getItemAt(j).isImageSliderActive()){
 															//trace("situacao " + contentSliderArray.getItemAt(j).isTextSliderActive() + " r:" + j);
@@ -4749,7 +5025,8 @@
 														colorsArray = new Array();
 														textSlider.accentColors = ["0xFFFFFF"];
 														textSlider.showTrackHighlight = true;
-														textSlider.x = contentSliderArray.getItemAt(j).mainContentSlider.x;
+														textSlider.left = contentSliderArray.getItemAt(j).mainContentSlider.left;
+														textSlider.right = contentSliderArray.getItemAt(j).mainContentSlider.right;
 														textSlider.y = contentSliderArray.getItemAt(j).mainContentSlider.y + 15;
 														textSlider.width = 678;
 														textSlider.height = 12;	
@@ -4854,6 +5131,7 @@
 														}					
 														
 														silenceBarsContainer.addElement(textSlider);
+														elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(textSlider));
 														///////
 														contentSliderArray.getItemAt(j).textContentSlider = textSlider;
 														///////
@@ -5054,8 +5332,7 @@
 					templateTextArea.visible = false;
 					templateTextCheckBox.visible = false;
 					templateTextLabel.visible = false;
-					xmlContent_button.visible = true;
-					textLabelCounter++;
+					xmlContent_button.visible = true;					
 					templateTextCheckBox.selected = false;
 					volta.visible = false;
 					//addEventListener("labelClicked", textIntervalSelected);						
@@ -5066,13 +5343,13 @@
 			private var newText:Boolean = true;
 			private function textIntervalSelected(event:MouseEventWithInfo):void{
 				var textLabelSelected:String = event.getInfo();
-				trace("Valor do label " + event.getInfo());	
+				//trace("Valor do label " + event.getInfo());	
 				
 				for(var i:int = 0; i < allContentInfo.length; i++){
 					trace(allContentInfo.getItemAt(i));
 					if(allContentInfo.getItemAt(i) is TextContent){
 						if(allContentInfo.getItemAt(i).textId == textLabelSelected){
-							trace("encontrou");	
+							//trace("encontrou");	
 							newText = false;
 							textIndexSelected = i;
 							textEditionContainer.visible = true;
@@ -5122,7 +5399,7 @@
 				//trace("Situacao dos componentes");
 				//trace(textEditionContainer.visible);
 				//trace(imageEditionContainer.visible);
-				if(textEditionContainer.visible == false && imageEditionContainer.visible == false){
+				if(textEditionContainer.visible == false && imageEditionContainer.visible == false){					
 					/* criacao do arquivo xml com conteudos complementares */
 					var converter:ContentConverterToXML = new ContentConverterToXML();
 					xmlContents = converter.objectToXML(allContentInfo.source);
@@ -5132,6 +5409,11 @@
 					fileStream.close();				
 					//Alert.show("Arquivo XML gerado com sucesso");
 					
+					//muda estilo do texto do destaque para o usuário perceber que o trecho já foi editado
+					var destaque:Object;
+					destaque = tasks.getItemAt(myDG.selectedIndex);
+					destaque.nomeDestaque = "|--OK--|  " + destaque.nomeDestaque;
+										
 					//acerto de visibilidade de componentes
 					volta.visible = false;
 					xmlContent_button.visible = false;
@@ -5140,17 +5422,30 @@
 					dropDownListOkButton.visible = false;
 					myDG.visible = true;
 					barsContainer.visible = false;
+					barsGroup.visible = false;
 					barsContainer_label.visible = false;				
 					textEditionContainer.visible = false;
 					imageEditionContainer.visible = false;
 									
-					if(elementDrawn){
-						var index:int;
-						for(var j:int = elementIndexCounter.length - 1; j >= 0; j--){
+					if(myDG.selectedIndex == selectedIndex){
+						if(elementDrawn){
+							trace("so tirou visibilidade");
+							var index:int;							
+							for(var j:int = 0; j < elementIndexCounter.length; j++){
+								index = elementIndexCounter[j];
+								//trace("index:" + index);
+								silenceBarsContainer.getElementAt(index).visible = false;													
+							}
+						}
+					}
+					else{
+						trace("apagou todo mundo");
+						for(j = elementIndexCounter.length - 1; j >= 0; j--){						
 							index = elementIndexCounter[j];
 							//trace("index:" + index);
-							silenceBarsContainer.getElementAt(index).visible = false;													
-						}					
+							silenceBarsContainer.removeElementAt(index);																		
+						}	
+						elementIndexCounter.removeAll();
 					}
 					beginEdition_button.visible = false;
 					editionIcons.visible = false;
@@ -5433,9 +5728,14 @@
 				  visible="false" click="xmlContent_button_clickHandler(event)"/>		
 		
 		<!-- grupo que contem as barrinhas com intervalos de interesse -->
-		<s:Scroller id="barsContainer" top="125" right="32" width="731" height="310" visible="false">
-			<s:Group id="silenceBarsContainer" left="5" right="9" top="1" bottom="1"/>	
-		</s:Scroller>		
+		<s:Group  id="barsGroup" top="125" right="30" left="595" height="310" visible="false">
+			<mx:ProgressBar id="progressBar" visible="false" width="220" left="250" top="140"
+							label="Carregando dados %3%%" maximum="100" minimum="0" mode="manual" />
+			<s:Scroller id="barsContainer" right="1" top="1" left="1" bottom="1">
+				<s:Group id="silenceBarsContainer" top="1" bottom="1"/>	
+			</s:Scroller>
+		</s:Group>
+		
 		<s:Group id="barsContainer_label" top="460" right="35" width="241" height="100" visible="false">
 			<s:Label text="LEGENDA" top="10" left="83"/>
 			<s:TextArea top="35" left="10" width="15" height="10" contentBackgroundColor="0xFF0000" editable="false"/>
@@ -5446,10 +5746,7 @@
 			<s:Label text="conteúdo complementar de imagem" top="65" left="33" fontSize="13"/>
 			<s:TextArea top="80" left="10" width="15" height="10" contentBackgroundColor="0x0000FF" editable="false"/>
 			<s:Label text="conteúdo complementar de texto" top="80" left="33" fontSize="13"/>
-		</s:Group>
-					
-		<mx:ProgressBar id="progressBar" visible="false" width="220"
-						label="Carregando dados %3%%" maximum="100" minimum="0" mode="manual" />
+		</s:Group>	
 		
 		<!-- ********************************************* componentes utilizados na edição de imagem *********************************************** -->
 		<s:BorderContainer id="imageEditionContainer" visible="false" left="623" top="499" width="499" height="134" cornerRadius="10" borderAlpha="0.8">
@@ -5543,12 +5840,14 @@
 		<mx:ViewStack id="viewstack1" left="10" right="10" top="10" bottom="10">
 			<mx:Box width="100%" height="100%">	
 				<!-- chama o componente que contem a interface do narrador e todas as suas funcionalidades -->
-				<local:Narrator id="narratorInterface" visible="false"/>
+				<Narrator:Narrator id="narratorInterface" visible="false"/>
 			</mx:Box>
 			<mx:Box width="100%" height="100%">				
 				<!-- inserir interface do administrador posteriormente -->
 			</mx:Box>			
 		</mx:ViewStack>
 	</mx:Canvas>
+	
+	<!--elementIndexCounter.addItem(silenceBarsContainer.getElementIndex(silenceSlider));-->
 	
 </s:WindowedApplication>

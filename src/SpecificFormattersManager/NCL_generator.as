@@ -9,6 +9,12 @@ package SpecificFormattersManager
 	import mx.controls.*;
 	import mx.controls.Alert;
 
+	/**
+	 * 
+	 * @author Suets
+	 * classe utilizada para testes no processo de geração do NCL
+	 * 
+	 */	
 	public class NCL_generator
 	{
 		private var html:HTMLLoader = new HTMLLoader();
@@ -54,11 +60,7 @@ package SpecificFormattersManager
 			//html.addEventListener(Event.COMPLETE, completeHandler);
 			xmlArea.text = sampleXML;
 			xslArea.text = sampleXSL;
-		}
-		
-		/*private function completeHandler(event:Event):void{
-			trace("carregou");
-		}*/
+		}	
 		
 		public function process(html:HTMLLoader, xml:XML, xsl:XML):String{
 			var doProcess:Boolean = true;

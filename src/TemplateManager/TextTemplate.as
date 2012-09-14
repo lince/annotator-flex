@@ -6,6 +6,11 @@ package TemplateManager
 	
 	import mx.controls.TextArea;
 
+	/**
+	 * 
+	 * classe de template de apresentação de texto
+	 * 
+	 */	
 	public class TextTemplate extends TemplateManager
 	{
 		public function TextTemplate()
@@ -16,6 +21,13 @@ package TemplateManager
 			return 0xFFFFFF;
 		}
 		
+		/**
+		 * 
+		 * @param myFormat
+		 * @return 
+		 * retorna texto recebido como parametro formatado de acordo com as definições de template
+		 * 
+		 */		
 		public function getTextStyle(myFormat:TextFormat):TextFormat{
 			myFormat.color = 0x000000;
 			myFormat.size = 16;
