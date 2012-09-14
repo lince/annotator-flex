@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<xsl:stylesheet version="1.0"
+	xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+	<xsl:output method="xml" version="1.0" encoding="iso-8859-1"
+		indent="yes" standalone="yes" />
+
+	<xsl:template match="/">
+		<!--?xml version="1.0" encoding="ISO-8859-1"? -->
+		<ncl id="main" xmlns="http://www.ncl.org.br/NCL3.0/EDTVProfile">
+			<head>
+				<regionBase>
+					<region id="fundoReg" left="0" top="0" width="100%" height="100%"
+						zIndex="0" />
+					<region id="filmeReg" width="100%" height="100%" zIndex="0" />
+
+					<xsl:for-each select="form/item">
+						<xsl:if test="imageOnMobile = 'true'">
+							<region>
+								<xsl:attribute name="id">  
+								<xsl:value-of select="concat(imageId,'Reg')" />
+							</xsl:attribute>
+								<xsl:attribute name="top">  
+								<xsl:value-of select="concat(positionY,'%')" />
+							</xsl:attribute>
+								<xsl:attribute name="left">  
+								<xsl:value-of select="concat(positionX,'%')" />
+							</xsl:attribute>
+								<xsl:attribute name="height">  
+								<xsl:value-of select="concat(imageHeight,'%')" />
+							</xsl:attribute>
+								<xsl:attribute name="width">  
+								<xsl:value-of select="concat(imageWidth,'%')" />
+							</xsl:attribute>
+								<xsl:attribute name="zIndex"> 1 </xsl:attribute>
+							</region>
+						</xsl:if>
+					</xsl:for-each>
+
+					<xsl:for-each select="form/item">
+						<xsl:if test="textOnMobile = 'true'  ">
+							<region>
+								<xsl:attribute name="id">  
+								<xsl:value-of select="concat(textId,'Reg')" />
+							</xsl:attribute>
+								<xsl:attribute name="top">  
+								<xsl:value-of select="concat(positionY,'%')" />
+							</xsl:attribute>
+								<xsl:attribute name="left">  
+								<xsl:value-of select="concat(positionX,'%')" />
+							</xsl:attribute>
+								<xsl:attribute name="height">  
+								<xsl:value-of select="concat(textHeight,'%')" />
+							</xsl:attribute>
+								<xsl:attribute name="width">  
+								<xsl:value-of select="concat(textWidth,'%')" />
+							</xsl:attribute>
+								<xsl:attribute name="zIndex"> 1 </xsl:attribute>
+							</region>
+						</xsl:if>
+					</xsl:for-each>
+
+					<xsl:for-each select="form/item">
+						<xsl:if test="audioId != '' ">
+							<region>
+								<xsl:attribute name="id">  
+								<xsl:value-of select="concat(audioId,'Reg')" />
+							</xsl:attribute>
+								<xsl:attribute name="zIndex"> 1 </xsl:attribute>
+							</region>
+						</xsl:if>
+					</xsl:for-each>
+					<region id="rgLua" width="100%" height="100%" zIndex="1" />
+				</regionBase>
+
+				<descriptorBase>
+					<descriptor id="fundoDesc" region="fundoReg" />
+					<descriptor id="filmeDesc" region="filmeReg" />
+
+					<xsl:for-each select="form/item">
+						<xsl:if test="imageOnMobile = 'true'">
+							<descriptor>
+								<xsl:attribute name="id">  
+									<xsl:value-of select="concat(imageId,'Desc')" />
+								</xsl:attribute>
+								<xsl:attribute name="region">  
+									<xsl:value-of select="concat(imageId,'Reg')" />
+								</xsl:attribute>
+								<xsl:attribute name="explicitDur">
+									<xsl:value-of
+									select="concat(round(imageEndTime - imageBeginTime), 's')" />                                          
+								</xsl:attribute>
+							</descriptor>
+						</xsl:if>
+					</xsl:for-each>
+
+					<xsl:for-each select="form/item">
+						<xsl:if test="textOnMobile = 'true'  ">
+							<descriptor>
+								<xsl:attribute name="id">  
+								    <xsl:value-of select="concat(textId,'Desc')" />
+							     </xsl:attribute>
+								<xsl:attribute name="region">  
+								    <xsl:value-of select="concat(textId,'Reg')" />
+							     </xsl:attribute>
+								<xsl:attribute name="explicitDur">
+                                            <xsl:value-of
+									select="concat(round(textEndTime - textBeginTime), 's')" />
+                                      </xsl:attribute>
+							</descriptor>
+						</xsl:if>
+					</xsl:for-each>
+
+					<xsl:for-each select="form/item">
+						<xsl:if test="audioId != '' ">
+							<descriptor>
+								<xsl:attribute name="id">  
+								      <xsl:value-of select="concat(audioId,'Desc')" />
+							     </xsl:attribute>
+								<xsl:attribute name="region">  
+								     <xsl:value-of select="concat(audioId,'Reg')" />
+							     </xsl:attribute>
+								<xsl:attribute name="explicitDur">
+                                            <xsl:value-of
+									select="concat(round(audioEndTime - audioBeginTime), 's')" />
+                                      </xsl:attribute>
+							</descriptor>
+						</xsl:if>
+					</xsl:for-each>
+					<descriptor id="dLua" region="rgLua" focusIndex="luaIdx">
+						<descriptorParam name="transparency" value="100%" />
+					</descriptor>
+				</descriptorBase>
+
+				<connectorBase>
+					<causalConnector id="onEndStop">
+						<simpleCondition role="onEnd" />
+						<simpleAction role="stop" max="unbounded" qualifier="par" />
+					</causalConnector>
+
+					<causalConnector id="onBeginStartN">
+						<simpleCondition role="onBegin" />
+						<simpleAction role="start" max="unbounded" qualifier="par" />
+					</causalConnector>
+				</connectorBase>
+			</head>
+
+			<body>
+				<port id="p1" component="lua" />
+
+				<media>
+					<xsl:attribute name="id"> lua </xsl:attribute>
+					<xsl:attribute name="src"> luaMobile.lua </xsl:attribute>
+					<xsl:attribute name="descriptor"> dLua </xsl:attribute>
+
+					<xsl:for-each select="form/item">
+						<xsl:if test="imageOnMobile = 'true'">
+							<area>
+								<xsl:attribute name="id">  
+                                <xsl:value-of select="concat(imageId,'Area')" />
+                            </xsl:attribute>
+								<xsl:attribute name="begin">  
+                                <xsl:value-of
+									select="concat(imageBeginTime,'s')" />
+                            </xsl:attribute>
+								<xsl:attribute name="end">  
+                                <xsl:value-of
+									select="concat(imageEndTime,'s')" />
+                            </xsl:attribute>
+							</area>
+						</xsl:if>
+					</xsl:for-each>
+
+					<xsl:for-each select="form/item">
+						<xsl:if test="textOnMobile = 'true' ">
+							<area>
+								<xsl:attribute name="id">  
+                                <xsl:value-of select="concat(textId,'Area')" />
+                            </xsl:attribute>
+								<xsl:attribute name="begin">  
+                                <xsl:value-of
+									select="concat(textBeginTime,'s')" />
+                            </xsl:attribute>
+								<xsl:attribute name="end">  
+                                <xsl:value-of select="concat(textEndTime,'s')" />
+                            </xsl:attribute>
+							</area>
+						</xsl:if>
+					</xsl:for-each>
+
+					<xsl:for-each select="form/item">
+						<xsl:if test="audioId != ''  ">
+							<area>
+								<xsl:attribute name="id">  
+                                <xsl:value-of select="concat(audioId,'Area')" />
+                            </xsl:attribute>
+								<xsl:attribute name="begin">  
+                                <xsl:value-of
+									select="concat(audioBeginTime,'s')" />
+                            </xsl:attribute>
+								<xsl:attribute name="end">  
+                                <xsl:value-of
+									select="concat(audioEndTime,'s')" />
+                            </xsl:attribute>
+							</area>
+						</xsl:if>
+					</xsl:for-each>
+				</media>
+
+				<xsl:for-each select="form/item">
+					<xsl:if test="imageOnMobile = 'true'">
+						<media>
+							<xsl:attribute name="id">  
+								<xsl:value-of select="imageId" />
+							</xsl:attribute>
+							<xsl:attribute name="src">  
+								<xsl:value-of select="imageSource" />
+							</xsl:attribute>
+							<xsl:attribute name="descriptor">  
+								<xsl:value-of select="concat(imageId,'Desc')" />
+							</xsl:attribute>
+						</media>
+					</xsl:if>
+				</xsl:for-each>
+
+				<xsl:for-each select="form/item">
+					<xsl:if test="textOnMobile = 'true' ">
+						<media>
+							<xsl:attribute name="id">  
+								<xsl:value-of select="textId" />
+							</xsl:attribute>
+							<xsl:attribute name="src">  
+								<xsl:value-of select="textSource" />
+							</xsl:attribute>
+							<xsl:attribute name="descriptor">  
+								<xsl:value-of select="concat(textId,'Desc')" />
+							</xsl:attribute>
+							<property name="background">
+								<xsl:attribute name="value"> 
+									<xsl:value-of select="textBackgroundColor" />
+								</xsl:attribute>
+							</property>
+						</media>
+					</xsl:if>
+				</xsl:for-each>
+
+				<xsl:for-each select="form/item">
+					<xsl:if test="audioId != '' ">
+						<media>
+							<xsl:attribute name="id">  
+								<xsl:value-of select="audioId" />
+							</xsl:attribute>
+							<xsl:attribute name="src">  
+								<xsl:value-of select="audioSource" />
+							</xsl:attribute>
+							<xsl:attribute name="descriptor">  
+								<xsl:value-of select="concat(audioId,'Desc')" />
+							</xsl:attribute>
+							<property name="soundLevel" />
+						</media>
+					</xsl:if>
+				</xsl:for-each>
+
+				<xsl:for-each select="form/item">
+					<xsl:if test="imageOnMobile = 'true'">
+						<link>
+							<xsl:attribute name="id">  
+								<xsl:value-of select="concat(imageId,'Link')" />
+							</xsl:attribute>
+							<xsl:attribute name="xconnector"> onStartBegin </xsl:attribute>
+							<bind>
+								<xsl:attribute name="role"> onStart </xsl:attribute>
+								<xsl:attribute name="component"> lua</xsl:attribute>
+								<xsl:attribute name="interface">  
+									<xsl:value-of select="concat(imageId,'Area')" />
+								</xsl:attribute>
+							</bind>
+							<bind>
+								<xsl:attribute name="component">                                           
+								       <xsl:value-of select="imageId" />
+								 </xsl:attribute>
+								<xsl:attribute name="role">  start  </xsl:attribute>
+							</bind>
+						</link>
+					</xsl:if>
+				</xsl:for-each>
+
+				<xsl:for-each select="form/item">
+					<xsl:if test="textOnMobile = 'true'">
+						<link>
+							<xsl:attribute name="id">  
+								<xsl:value-of select="concat(textId,'Link')" />
+							</xsl:attribute>
+							<xsl:attribute name="xconnector"> onStartBegin </xsl:attribute>
+							<bind>
+								<xsl:attribute name="role"> onStart </xsl:attribute>
+								<xsl:attribute name="component"> lua</xsl:attribute>
+								<xsl:attribute name="interface">  
+									<xsl:value-of select="concat(textId,'Area')" />
+								</xsl:attribute>
+							</bind>
+							<bind>
+								<xsl:attribute name="component">                                           
+								       <xsl:value-of select="textId" />
+								 </xsl:attribute>
+								<xsl:attribute name="role">  start  </xsl:attribute>
+							</bind>
+						</link>
+					</xsl:if>
+				</xsl:for-each>
+
+				<xsl:for-each select="form/item">
+					<xsl:if test="audioId != ''">
+						<link>
+							<xsl:attribute name="id">  
+								<xsl:value-of select="concat(audioId,'Link')" />
+							</xsl:attribute>
+							<xsl:attribute name="xconnector"> onStartBegin </xsl:attribute>
+							<bind>
+								<xsl:attribute name="role"> onStart </xsl:attribute>
+								<xsl:attribute name="component"> lua</xsl:attribute>
+								<xsl:attribute name="interface">  
+									<xsl:value-of select="concat(audioId,'Area')" />
+								</xsl:attribute>
+							</bind>
+							<bind>
+								<xsl:attribute name="component">                                           
+								       <xsl:value-of select="audioId" />
+								 </xsl:attribute>
+								<xsl:attribute name="role">  start  </xsl:attribute>
+							</bind>
+						</link>
+					</xsl:if>
+				</xsl:for-each>
+			</body>
+
+		</ncl>
+	</xsl:template>
+</xsl:stylesheet>
